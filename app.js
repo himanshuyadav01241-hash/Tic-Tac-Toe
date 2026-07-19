@@ -2,11 +2,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// Your verified Firebase configuration object
+// Your verified Firebase configuration object pointed to your regional database
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
   authDomain: "tictactoe-e747b.firebaseapp.com",
-  databaseURL: "https://tictactoe-e747b-default-rtdb.firebaseio.com",
+  databaseURL: "https://tictactoe-e747b-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "tictactoe-e747b",
   storageBucket: "tictactoe-e747b.firebasestorage.app",
   messagingSenderId: "864419563280",
