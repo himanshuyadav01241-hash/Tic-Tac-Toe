@@ -1,0 +1,310 @@
+:root {
+    /* Cherry Blossom Pastel Palette */
+    --bg-gradient: linear-gradient(135deg, #fdeff4 0%, #e0f2f1 100%);
+    --glass-bg: rgba(255, 255, 255, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.7);
+    --text-color: #4a5568; 
+    --accent-color: #667eea; 
+    --sakura-pink: #ffb7c5;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--bg-gradient);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    color: var(--text-color);
+    overflow-x: hidden;
+}
+
+/* --- Smooth Connection Overlay Screen --- */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(253, 239, 244, 0.75); /* Soft pink backdrop */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.05);
+}
+
+.overlay-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--glass-border);
+    padding: 40px 30px;
+    border-radius: 28px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    max-width: 340px;
+    width: 90%;
+}
+
+#overlay-title {
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin-top: 15px;
+    color: var(--text-color);
+}
+
+#overlay-subtitle {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+/* Floating Petal Animation */
+.petal-loader {
+    display: inline-block;
+    font-size: 3rem;
+    animation: floatPetal 3s ease-in-out infinite;
+}
+
+@keyframes floatPetal {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(15deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+}
+
+#overlay-btn {
+    width: 100%;
+    background: var(--sakura-pink);
+    color: #4a5568;
+    box-shadow: 0 4px 12px rgba(255, 183, 197, 0.4);
+}
+
+#overlay-btn:hover {
+    background: #ffa4b5;
+}
+
+/* --- Main Game Layout --- */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    padding: 30px;
+    border-radius: 28px; 
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 40px 0 rgba(210, 150, 160, 0.2); 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+    color: var(--text-color);
+}
+
+.status-panel {
+    text-align: center;
+    font-size: 0.95rem;
+    width: 100%;
+    min-height: 24px; /* Prevents layout shifting */
+}
+
+button {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 10px;
+    transition: transform 0.2s, background 0.2s;
+    font-size: 0.9rem;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    background: #5a72e6;
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- Scoreboard Styles --- */
+.scoreboard {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 15px;
+}
+
+.score-box {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--glass-border);
+    padding: 12px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: box-shadow 0.3s, transform 0.3s, background 0.3s;
+}
+
+.score-box.active-turn {
+    box-shadow: 0 0 15px rgba(224, 242, 241, 0.8); 
+    transform: scale(1.03);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.avatar {
+    font-size: 1.6rem;
+}
+
+.score {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+/* --- Game Grid --- */
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 300px; /* FIX: Prevents layout height from collapsing to 0px */
+}
+
+.board.disabled {
+    pointer-events: none;
+    opacity: 0.5; /* FIX: Keeps it visible but semi-faded before player links up */
+}
+
+.cell {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.5rem; /* Slightly larger emojis */
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    user-select: none;
+    color: var(--text-color) !important; /* FIX: Guarantees emoji/text visibility */
+}
+
+.cell:hover {
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 10px rgba(255, 183, 197, 0.3); 
+}
+
+.cell:active {
+    transform: scale(0.95);
+}
+
+.cell.taken {
+    pointer-events: none;
+}
+
+/* Highlight Winning Combination */
+.cell.winner {
+    background: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
+    animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.04); }
+}
+/* --- Add this to the bottom of style.css --- */
+.input-group {
+    margin: 15px 0;
+    text-align: left;
+    width: 100%;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+    color: #718096;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+    border-color: var(--accent-color);
+}
+/* --- Add this to the bottom of your style.css --- */
+.avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Soft blue frame for the male character side */
+.character-male {
+    background: rgba(102, 126, 234, 0.25);
+    border: 1px solid rgba(102, 126, 234, 0.4);
+}
+
+/* Soft pink frame for the female character side */
+.character-female {
+    background: rgba(255, 183, 197, 0.35);
+    border: 1px solid rgba(255, 183, 197, 0.6);
+}
+
+.player-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    max-width: 90px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
