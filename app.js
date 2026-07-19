@@ -1,9 +1,28 @@
-const AVATARS = { host: '🧑‍🦱', guest: '👩‍🦰' };
+// Import the Firebase modules needed for modern CDN web structures
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+// Your verified Firebase configuration object
+const firebaseConfig = {
+  apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
+  authDomain: "tictactoe-e747b.firebaseapp.com",
+  databaseURL: "https://tictactoe-e747b-default-rtdb.firebaseio.com",
+  projectId: "tictactoe-e747b",
+  storageBucket: "tictactoe-e747b.firebasestorage.app",
+  messagingSenderId: "864419563280",
+  appId: "1:864419563280:web:ed84b02a67e0d8e29cc795",
+  measurementId: "G-R8M0VCC2WC"
+};
+
+// Initialize Firebase App
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Game States
+const AVATARS = { host: '🌸', guest: '🦊' };
 let myRole = null;       
 let currentTurn = 'host'; 
 let boardState = Array(9).fill(null);
-let scores = { host: 0, guest: 0 };
-let peer, connection;
 
 // UI Components
 const statusText = document.getElementById('status-text');
@@ -23,17 +42,7 @@ const overlayBtn = document.getElementById('overlay-btn');
 const usernameInput = document.getElementById('username-input');
 
 const urlParams = new URLSearchParams(window.location.search);
-const targetRoom = urlParams.get('room');
-
-// Shared NAT/Firewall Bypass Configurations
-const peerConfig = {
-    config: {
-        iceServers: [
-            { url: 'stun:stun.l.google.com:19302' },
-            { url: 'stun:stun1.l.google.com:19302' }
-        ]
-    }
-};
+let targetRoom = urlParams.get('room');
 
 // Helper to get local player name entry
 function getMyName() {
@@ -51,132 +60,142 @@ if (targetRoom) {
         overlayBtn.innerText = "Connecting...";
         overlayBtn.disabled = true;
         
-        // Initializing Guest Client with Firewall Bypass Configuration
-        peer = new Peer(peerConfig);
-        peer.on('open', () => {
-            connection = peer.connect(targetRoom);
-            setupConnectionListeners();
-        });
-        
-        peer.on('error', (err) => {
-            console.error(err);
-            overlayTitle.innerText = "Connection Failed 🌸";
-            overlaySubtitle.innerText = "Could not link to the host. Please double-check your invite URL.";
-            overlayBtn.disabled = false;
-            overlayBtn.innerText = "🌸 Retry Join";
+        // Register Guest presence inside the active cloud room
+        update(ref(db, `games/${targetRoom}`), {
+            guestName: getMyName(),
+            guestConnected: true
+        }).then(() => {
+            setupGameSync();
         });
     };
 } else {
     myRole = 'host';
-    // Initializing Host Server with Firewall Bypass Configuration
-    peer = new Peer(peerConfig);
-    peer.on('open', (id) => {
-        overlayTitle.innerText = "Invite Your Partner";
-        overlaySubtitle.innerText = "Enter your name and share the invite link.";
-        overlayBtn.classList.remove('hidden');
+    // Generate an isolated, clean web room ID key string
+    targetRoom = Math.random().toString(36).substring(2, 9);
+    
+    overlayTitle.innerText = "Invite Your Partner";
+    overlaySubtitle.innerText = "Enter your name and share the invite link.";
+    overlayBtn.classList.remove('hidden');
+    
+    const inviteLink = `${window.location.origin}${window.location.pathname}?room=${targetRoom}`;
+    overlayBtn.onclick = () => {
+        navigator.clipboard.writeText(inviteLink);
+        overlayBtn.innerText = "🌸 Link Copied!";
+        overlayBtn.style.background = "#e0f2f1";
+        setTimeout(() => {
+            overlayBtn.innerText = "📋 Copy Invite Link";
+            overlayBtn.style.background = "var(--sakura-pink)";
+        }, 2000);
         
-        const inviteLink = `${window.location.origin}${window.location.pathname}?room=${id}`;
-        overlayBtn.onclick = () => {
-            navigator.clipboard.writeText(inviteLink);
-            overlayBtn.innerText = "🌸 Link Copied!";
-            overlayBtn.style.background = "#e0f2f1";
-            setTimeout(() => {
-                overlayBtn.innerText = "📋 Copy Invite Link";
-                overlayBtn.style.background = "var(--sakura-pink)";
-            }, 2000);
-        };
-    });
-
-    peer.on('connection', (conn) => {
-        connection = conn;
-        setupConnectionListeners();
-    });
+        // Build initial structure for the newly initialized cloud room
+        set(ref(db, `games/${targetRoom}`), {
+            hostName: getMyName(),
+            hostConnected: true,
+            currentTurn: 'host',
+            boardState: Array(9).fill(""),
+            scores: { host: 0, guest: 0 }
+        });
+        
+        setupGameSync();
+    };
 }
 
-function setupConnectionListeners() {
-    connection.on('open', () => {
-        // Exchange player identity data
-        connection.send({ type: 'name-sync', name: getMyName(), role: myRole });
+// Synchronization Stream Handler
+function setupGameSync() {
+    const roomRef = ref(db, `games/${targetRoom}`);
+    
+    // Automatically flag connection drops if the window tab closes unexpectedly
+    onDisconnect(ref(db, `games/${targetRoom}/${myRole}Connected`)).set(false);
+
+    onValue(roomRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        // Map client UI strings directly with real-time variables
+        p1NameEl.innerText = data.hostName || "Host";
+        p2NameEl.innerText = data.guestName || "Guest";
         
-        if (myRole === 'host') p1NameEl.innerText = getMyName();
-        if (myRole === 'guest') p2NameEl.innerText = getMyName();
+        // Handle window UI display overlays depending on real-time presence markers
+        if (data.hostConnected && data.guestConnected) {
+            joinOverlay.classList.add('fade-out');
+            boardEl.classList.remove('disabled');
+        } else {
+            joinOverlay.classList.remove('fade-out');
+            overlayTitle.innerText = "Connection Dropped 🌸";
+            overlaySubtitle.innerText = "Waiting for your partner to re-enter the link...";
+            overlayBtn.classList.add('hidden');
+            boardEl.classList.add('disabled');
+        }
 
-        // Release overlay panel locks
-        joinOverlay.classList.add('fade-out');
-        boardEl.classList.remove('disabled');
-        updateTurnIndicators();
-    });
-
-    connection.on('data', (data) => {
-        if (data.type === 'name-sync') {
-            if (data.role === 'host') p1NameEl.innerText = data.name;
-            if (data.role === 'guest') p2NameEl.innerText = data.name;
-            
-            if (myRole === 'host') {
-                connection.send({ type: 'name-sync', name: getMyName(), role: 'host' });
+        // Align local application board variables with server snapshots
+        boardState = data.boardState.map(val => val === "" ? null : val);
+        currentTurn = data.currentTurn;
+        
+        // Repaint grid cells based on downloaded snapshots
+        cells.forEach((cell, idx) => {
+            const cellValue = boardState[idx];
+            cell.innerText = cellValue ? AVATARS[cellValue] : '';
+            if (cellValue) {
+                cell.classList.add('taken');
+            } else {
+                cell.classList.remove('taken', 'winner');
             }
-        } else if (data.type === 'move') {
-            executeMove(data.index, data.role);
-        } else if (data.type === 'reset') {
-            resetBoardState();
+        });
+
+        // Sync scoreboard components
+        const currentHostScore = data.scores?.host || 0;
+        const currentGuestScore = data.scores?.guest || 0;
+        document.getElementById('p1-score').innerText = currentHostScore;
+        document.getElementById('p2-score').innerText = currentGuestScore;
+
+        // Run local state evaluation matrices
+        if (checkWin()) {
+            highlightWin();
+            const winnerName = currentTurn === 'host' ? p1NameEl.innerText : p2NameEl.innerText;
+            statusText.innerText = `${winnerName} Wins the Round! 🌟`;
+            boardEl.classList.add('disabled');
+            resetBtn.classList.remove('hidden');
+        } else if (boardState.every(cell => cell !== null)) {
+            statusText.innerText = "A Peaceful Draw! 🥂";
+            resetBtn.classList.remove('hidden');
+        } else {
+            resetBtn.classList.add('hidden');
+            if (data.hostConnected && data.guestConnected) {
+                boardEl.classList.remove('disabled');
+            }
+            updateTurnIndicators();
         }
     });
-
-    connection.on('close', () => {
-        joinOverlay.classList.remove('fade-out');
-        overlayTitle.innerText = "Connection Lost 🌸";
-        overlaySubtitle.innerText = "Your partner disconnected. Refresh to open a new room.";
-        overlayBtn.classList.add('hidden');
-        boardEl.classList.add('disabled');
-    });
 }
 
+// Catch click events and apply structural adjustments directly up to the Firebase tree path
 cells.forEach(cell => {
     cell.addEventListener('click', (e) => {
         const index = parseInt(e.target.dataset.index);
-        if (boardState[index] || currentTurn !== myRole || !connection) return;
+        if (boardState[index] || currentTurn !== myRole) return;
 
-        executeMove(index, myRole);
-        connection.send({ type: 'move', index: index, role: myRole });
+        // Form temporary updates matrix properties
+        const updates = {};
+        updates[`games/${targetRoom}/boardState/${index}`] = myRole;
+
+        if (boardState.filter(c => c !== null).length >= 4 && checkWinWithMove(index, myRole)) {
+            // Read target snapshot path once to calculate cumulative score sums cleanly
+            onValue(ref(db, `games/${targetRoom}/scores`), (snapshot) => {
+                const currentScores = snapshot.val() || { host: 0, guest: 0 };
+                updates[`games/${targetRoom}/scores/${myRole}`] = (currentScores[myRole] || 0) + 1;
+            }, { onlyOnce: true });
+        } else {
+            // Swap turns inside state mapping updates
+            updates[`games/${targetRoom}/currentTurn`] = myRole === 'host' ? 'guest' : 'host';
+        }
+
+        update(ref(db), updates);
     });
 });
 
-function executeMove(index, role) {
-    boardState[index] = role;
-    cells[index].innerText = AVATARS[role];
-    cells[index].classList.add('taken');
-
-    if (checkWin()) {
-        highlightWin();
-        scores[role]++;
-        document.getElementById(`p${role === 'host' ? 1 : 2}-score`).innerText = scores[role];
-        
-        const winnerName = role === 'host' ? p1NameEl.innerText : p2NameEl.innerText;
-        statusText.innerText = `${winnerName} Wins the Round! 🌟`;
-        
-        boardEl.classList.add('disabled');
-        resetBtn.classList.remove('hidden');
-        return;
-    }
-
-    if (boardState.every(cell => cell !== null)) {
-        statusText.innerText = "A Peaceful Draw! 🥂";
-        resetBtn.classList.remove('hidden');
-        return;
-    }
-
-    currentTurn = currentTurn === 'host' ? 'guest' : 'host';
-    updateTurnIndicators();
-}
-
 function updateTurnIndicators() {
     const currentName = currentTurn === 'host' ? p1NameEl.innerText : p2NameEl.innerText;
-    
-    if (currentTurn === myRole) {
-        statusText.innerText = "Your Turn ✨";
-    } else {
-        statusText.innerText = `${currentName} is choosing a tile...`;
-    }
+    statusText.innerText = currentTurn === myRole ? "Your Turn ✨" : `${currentName} is choosing a tile...`;
 
     if (currentTurn === 'host') {
         p1Box.classList.add('active-turn');
@@ -199,6 +218,13 @@ function checkWin() {
     });
 }
 
+// Clean diagnostic method to evaluate scoring loops before mutation actions finish uploading
+function checkWinWithMove(index, role) {
+    const tempBoard = [...boardState];
+    tempBoard[index] = role;
+    return winPatterns.some(pattern => pattern.every(i => tempBoard[i] === role));
+}
+
 function highlightWin() {
     winPatterns.forEach(pattern => {
         if (pattern.every(index => boardState[index] === currentTurn)) {
@@ -207,19 +233,10 @@ function highlightWin() {
     });
 }
 
+// Clear grid items and update matching cloud paths to original defaults
 resetBtn.addEventListener('click', () => {
-    resetBoardState();
-    connection.send({ type: 'reset' });
-});
-
-function resetBoardState() {
-    boardState = Array(9).fill(null);
-    currentTurn = 'host';
-    cells.forEach(cell => {
-        cell.innerText = '';
-        cell.classList.remove('taken', 'winner');
+    update(ref(db, `games/${targetRoom}`), {
+        boardState: Array(9).fill(""),
+        currentTurn: 'host'
     });
-    resetBtn.classList.add('hidden');
-    boardEl.classList.remove('disabled');
-    updateTurnIndicators();
-}
+});
