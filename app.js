@@ -1,4 +1,4 @@
-const AVATARS = { host: '🌸', guest: '🦊' };
+const AVATARS = { host: '🧑‍🦱', guest: '👩‍🦰' };
 let myRole = null;       
 let currentTurn = 'host'; 
 let boardState = Array(9).fill(null);
@@ -25,6 +25,16 @@ const usernameInput = document.getElementById('username-input');
 const urlParams = new URLSearchParams(window.location.search);
 const targetRoom = urlParams.get('room');
 
+// Shared NAT/Firewall Bypass Configurations
+const peerConfig = {
+    config: {
+        iceServers: [
+            { url: 'stun:stun.l.google.com:19302' },
+            { url: 'stun:stun1.l.google.com:19302' }
+        ]
+    }
+};
+
 // Helper to get local player name entry
 function getMyName() {
     return usernameInput.value.trim() || (myRole === 'host' ? 'Host' : 'Guest');
@@ -40,15 +50,26 @@ if (targetRoom) {
     overlayBtn.onclick = () => {
         overlayBtn.innerText = "Connecting...";
         overlayBtn.disabled = true;
-        peer = new Peer();
+        
+        // Initializing Guest Client with Firewall Bypass Configuration
+        peer = new Peer(peerConfig);
         peer.on('open', () => {
             connection = peer.connect(targetRoom);
             setupConnectionListeners();
         });
+        
+        peer.on('error', (err) => {
+            console.error(err);
+            overlayTitle.innerText = "Connection Failed 🌸";
+            overlaySubtitle.innerText = "Could not link to the host. Please double-check your invite URL.";
+            overlayBtn.disabled = false;
+            overlayBtn.innerText = "🌸 Retry Join";
+        });
     };
 } else {
     myRole = 'host';
-    peer = new Peer();
+    // Initializing Host Server with Firewall Bypass Configuration
+    peer = new Peer(peerConfig);
     peer.on('open', (id) => {
         overlayTitle.innerText = "Invite Your Partner";
         overlaySubtitle.innerText = "Enter your name and share the invite link.";
@@ -74,13 +95,13 @@ if (targetRoom) {
 
 function setupConnectionListeners() {
     connection.on('open', () => {
-        // Send our chosen name to our partner
+        // Exchange player identity data
         connection.send({ type: 'name-sync', name: getMyName(), role: myRole });
         
-        // Update local UI for ourselves immediately
         if (myRole === 'host') p1NameEl.innerText = getMyName();
         if (myRole === 'guest') p2NameEl.innerText = getMyName();
 
+        // Release overlay panel locks
         joinOverlay.classList.add('fade-out');
         boardEl.classList.remove('disabled');
         updateTurnIndicators();
@@ -91,7 +112,6 @@ function setupConnectionListeners() {
             if (data.role === 'host') p1NameEl.innerText = data.name;
             if (data.role === 'guest') p2NameEl.innerText = data.name;
             
-            // If host receives name, reply back with host name to complete sync
             if (myRole === 'host') {
                 connection.send({ type: 'name-sync', name: getMyName(), role: 'host' });
             }
