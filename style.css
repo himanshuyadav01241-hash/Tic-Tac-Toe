@@ -23,17 +23,206 @@ body {
     align-items: center;
     padding: 20px;
     color: var(--text-color);
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
-/* --- Smooth Connection Overlay Screen --- */
+/* --- Floating Cherry Blossom Background --- */
+.petal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Dynamically injected or styled petals */
+.petal {
+    position: absolute;
+    background: linear-gradient(to bottom right, #ffb7c5, #ff9eb2);
+    border-radius: 15% 70% 40% 70%;
+    animation: fall linear infinite;
+    top: -50px;
+}
+
+@keyframes fall {
+    0% { top: -50px; transform: translateX(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 105vh; transform: translateX(100px) rotate(720deg); opacity: 0; }
+}
+
+/* --- Main Glassmorphic Game Card --- */
+.game-container {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    padding: 30px;
+    border-radius: 28px; 
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 40px 0 rgba(210, 150, 160, 0.2); 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    z-index: 5;
+}
+
+.game-header {
+    text-align: center;
+}
+
+.game-header h1 {
+    font-size: 2rem;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+    margin-bottom: 5px;
+}
+
+#status-text {
+    font-size: 0.95rem;
+    min-height: 24px;
+}
+
+/* --- Scoreboard Styles --- */
+.scoreboard {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+}
+
+.player-box {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--glass-border);
+    padding: 12px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: box-shadow 0.3s, transform 0.3s, background 0.3s;
+}
+
+.player-box.active-turn {
+    box-shadow: 0 0 15px rgba(255, 183, 197, 0.6); 
+    transform: scale(1.03);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.vs-divider {
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0.5;
+}
+
+.avatar {
+    font-size: 1.6rem;
+}
+
+.player-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    max-width: 90px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.score {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+/* --- Game Grid --- */
+.board-wrapper {
+    width: 100%;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 300px;
+}
+
+.board.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.cell {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.2rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    user-select: none;
+}
+
+.cell:hover {
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 10px rgba(255, 183, 197, 0.3); 
+}
+
+.cell:active {
+    transform: scale(0.95);
+}
+
+.cell.taken {
+    pointer-events: none;
+}
+
+.cell.winner {
+    background: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
+    animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.04); }
+}
+
+/* --- Buttons --- */
+button.reset-button, .overlay-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, background 0.2s;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+button.reset-button:hover, .overlay-btn:hover {
+    transform: translateY(-2px);
+    background: #5a72e6;
+}
+
+/* --- Setup Overlay Module --- */
 .overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(253, 239, 244, 0.75); /* Soft pink backdrop */
+    background: rgba(253, 239, 244, 0.8);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     display: flex;
@@ -58,196 +247,17 @@ body {
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
     max-width: 340px;
     width: 90%;
-}
-
-#overlay-title {
-    font-size: 1.5rem;
-    font-weight: 500;
-    margin-top: 15px;
-    color: var(--text-color);
-}
-
-#overlay-subtitle {
-    font-size: 0.9rem;
-    color: #718096;
-    margin-top: 5px;
-    margin-bottom: 15px;
-}
-
-/* Floating Petal Animation */
-.petal-loader {
-    display: inline-block;
-    font-size: 3rem;
-    animation: floatPetal 3s ease-in-out infinite;
-}
-
-@keyframes floatPetal {
-    0% { transform: translateY(0px) rotate(0deg); }
-    50% { transform: translateY(-10px) rotate(15deg); }
-    100% { transform: translateY(0px) rotate(0deg); }
-}
-
-#overlay-btn {
-    width: 100%;
-    background: var(--sakura-pink);
-    color: #4a5568;
-    box-shadow: 0 4px 12px rgba(255, 183, 197, 0.4);
-}
-
-#overlay-btn:hover {
-    background: #ffa4b5;
-}
-
-/* --- Main Game Layout --- */
-.glass-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border: 1px solid var(--glass-border);
-    padding: 30px;
-    border-radius: 28px; 
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 10px 40px 0 rgba(210, 150, 160, 0.2); 
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 20px;
-}
-
-.title {
-    font-size: 2rem;
-    font-weight: 500;
-    letter-spacing: -0.8px;
-    color: var(--text-color);
-}
-
-.status-panel {
-    text-align: center;
-    font-size: 0.95rem;
-    width: 100%;
-    min-height: 24px; /* Prevents layout shifting */
-}
-
-button {
-    background: var(--accent-color);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 14px;
-    cursor: pointer;
-    font-weight: 600;
-    margin-top: 10px;
-    transition: transform 0.2s, background 0.2s;
-    font-size: 0.9rem;
-}
-
-button:hover {
-    transform: translateY(-2px);
-    background: #5a72e6;
-}
-
-button:active {
-    transform: translateY(0);
-}
-
-.hidden {
-    display: none !important;
-}
-
-/* --- Scoreboard Styles --- */
-.scoreboard {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
     gap: 15px;
 }
 
-.score-box {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.3);
-    border: 1px solid var(--glass-border);
-    padding: 12px;
-    border-radius: 18px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    transition: box-shadow 0.3s, transform 0.3s, background 0.3s;
+.overlay-subtitle {
+    font-size: 0.9rem;
+    color: #718096;
 }
 
-.score-box.active-turn {
-    box-shadow: 0 0 15px rgba(224, 242, 241, 0.8); 
-    transform: scale(1.03);
-    background: rgba(255, 255, 255, 0.7);
-}
-
-.avatar {
-    font-size: 1.6rem;
-}
-
-.score {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--text-color);
-}
-
-/* --- Game Grid --- */
-.board {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    min-height: 300px; /* FIX: Prevents layout height from collapsing to 0px */
-}
-
-.board.disabled {
-    pointer-events: none;
-    opacity: 0.5; /* FIX: Keeps it visible but semi-faded before player links up */
-}
-
-.cell {
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid var(--glass-border);
-    border-radius: 18px; 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2.5rem; /* Slightly larger emojis */
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-    user-select: none;
-    color: var(--text-color) !important; /* FIX: Guarantees emoji/text visibility */
-}
-
-.cell:hover {
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 0 10px rgba(255, 183, 197, 0.3); 
-}
-
-.cell:active {
-    transform: scale(0.95);
-}
-
-.cell.taken {
-    pointer-events: none;
-}
-
-/* Highlight Winning Combination */
-.cell.winner {
-    background: rgba(102, 126, 234, 0.3);
-    box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
-    animation: pulse 1.5s infinite alternate;
-}
-
-@keyframes pulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.04); }
-}
-/* --- Add this to the bottom of style.css --- */
 .input-group {
-    margin: 15px 0;
     text-align: left;
     width: 100%;
 }
@@ -262,7 +272,7 @@ button:active {
 
 .input-group input {
     width: 100%;
-    padding: 10px 14px;
+    padding: 12px 14px;
     border-radius: 12px;
     border: 1px solid var(--glass-border);
     background: rgba(255, 255, 255, 0.6);
@@ -275,36 +285,17 @@ button:active {
 .input-group input:focus {
     border-color: var(--accent-color);
 }
-/* --- Add this to the bottom of your style.css --- */
-.avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.8rem;
-    margin-bottom: 5px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+
+.overlay-btn {
+    background: var(--sakura-pink);
+    color: #4a5568;
+    box-shadow: 0 4px 12px rgba(255, 183, 197, 0.4);
 }
 
-/* Soft blue frame for the male character side */
-.character-male {
-    background: rgba(102, 126, 234, 0.25);
-    border: 1px solid rgba(102, 126, 234, 0.4);
+.overlay-btn:hover {
+    background: #ffa4b5;
 }
 
-/* Soft pink frame for the female character side */
-.character-female {
-    background: rgba(255, 183, 197, 0.35);
-    border: 1px solid rgba(255, 183, 197, 0.6);
-}
-
-.player-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    max-width: 90px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.hidden {
+    display: none !important;
 }
