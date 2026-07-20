@@ -6,7 +6,7 @@ import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- FIREBASE CONFIGURATION ---
+// --- FIREBASE CONFIG ---
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
   authDomain: "tictactoe-e747b.firebaseapp.com",
@@ -18,20 +18,18 @@ const firebaseConfig = {
   measurementId: "G-R8M0VCC2WC"
 };
 
-// Initialize Firebase App & Services
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// App Global State
 let currentUser = null;
 let currentRoomId = null;
 let playerSymbol = null;
 let isMyTurn = false;
 let gameActive = false;
 
-// DOM Elements Selection
+// DOM Elements
 const overlay = document.getElementById('join-overlay');
 const usernameInput = document.getElementById('username-input');
 const googleBtn = document.getElementById('google-login-btn');
@@ -66,6 +64,8 @@ const chatBox = document.getElementById('chat-box');
 const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
+const toggleChatBtn = document.getElementById('toggle-chat-btn');
+const closeChatBtn = document.getElementById('close-chat-btn');
 
 const rematchBtn = document.getElementById('rematch-btn');
 const leaveRoomBtn = document.getElementById('leave-room-btn');
@@ -75,7 +75,7 @@ const leaderboardModal = document.getElementById('leaderboard-modal');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardList = document.getElementById('leaderboard-list');
 
-// --- AUTHENTICATION & GOOGLE SIGN-IN ---
+// --- AUTHENTICATION ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -84,13 +84,11 @@ onAuthStateChanged(auth, async (user) => {
         if (profileBar) profileBar.classList.remove('hidden');
         if (usernameInput) usernameInput.value = user.displayName || '';
 
-        // UI state for Google Sign-In button
         if (googleBtn) {
             googleBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
             googleBtn.classList.add('signed-in');
         }
 
-        // Sync or initialize user stats in Realtime DB
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
@@ -111,11 +109,10 @@ onAuthStateChanged(auth, async (user) => {
 
 if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
-        if (currentUser) return; // Prevent triggering popups if already signed in
+        if (currentUser) return;
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (err) {
-            // Silently swallow closed popup errors instead of showing native alert boxes
             if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
                 alert("Google Sign-In failed: " + err.message);
             }
@@ -127,7 +124,7 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => signOut(auth));
 }
 
-// --- ROOM MANAGEMENT LOGIC ---
+// --- ROOM CREATION ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -187,13 +184,14 @@ function joinRoom(roomId, symbol) {
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${roomId}`;
     if (chatBox) chatBox.classList.remove('hidden');
+    if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
     if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
 
     listenToRoom(roomId);
     listenToChat(roomId);
 }
 
-// --- REALTIME GAMEPLAY SYNCHRONIZATION ---
+// --- GAMEPLAY SYNCRONIZATION ---
 function listenToRoom(roomId) {
     const roomRef = ref(db, `rooms/${roomId}`);
     onValue(roomRef, (snapshot) => {
@@ -246,7 +244,6 @@ function renderBoard(boardState) {
     });
 }
 
-// Handling user moves/clicks
 cells.forEach((cell) => {
     cell.addEventListener('click', async () => {
         const index = cell.dataset.index;
@@ -318,7 +315,19 @@ if (leaveRoomBtn) {
     leaveRoomBtn.addEventListener('click', () => location.reload());
 }
 
-// --- CHAT SYSTEM ---
+// --- CHAT SYSTEM & MOBILE TOGGLE ---
+if (toggleChatBtn) {
+    toggleChatBtn.addEventListener('click', () => {
+        chatBox.classList.remove('hidden');
+    });
+}
+
+if (closeChatBtn) {
+    closeChatBtn.addEventListener('click', () => {
+        chatBox.classList.add('hidden');
+    });
+}
+
 if (chatForm) {
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -343,18 +352,23 @@ function listenToChat(roomId) {
     onValue(chatRef, (snapshot) => {
         if (!chatMessages) return;
         chatMessages.innerHTML = '';
+        const myName = usernameInput.value.trim() || playerSymbol;
+
         snapshot.forEach((child) => {
             const data = child.val();
+            const isMe = data.sender === myName;
+
             const msgEl = document.createElement('div');
-            msgEl.className = 'chat-msg';
+            msgEl.className = `chat-msg ${isMe ? 'my-msg' : ''}`;
             msgEl.innerHTML = `<strong>${data.sender}:</strong> ${data.text}`;
             chatMessages.appendChild(msgEl);
         });
+
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 }
 
-// --- LEADERBOARD SYSTEM ---
+// --- LEADERBOARD LOGIC ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -378,7 +392,6 @@ if (leaderboardBtn) {
             });
         });
 
-        // Sort users by wins in descending order
         users.sort((a, b) => b.wins - a.wins);
 
         if (leaderboardList) {
@@ -401,7 +414,6 @@ if (closeLeaderboardBtn) {
     });
 }
 
-// --- UTILITIES ---
 const copyAction = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
