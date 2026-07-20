@@ -169,19 +169,19 @@ body {
 
 .mobile-chat-toggle { display: none; }
 
-/* Overlay Popups (FULL SCREEN BACKDROP FIX) */
+/* FULL-SCREEN LOBBY OVERLAY FIX */
 .overlay {
     position: fixed; 
     top: 0; 
     left: 0; 
     width: 100vw; 
     height: 100vh;
-    background: rgba(15, 23, 42, 0.65); /* Dark dim backdrop */
-    backdrop-filter: blur(8px); /* Soft backdrop blur */
+    background: rgba(15, 23, 42, 0.85); /* Solid dark backdrop */
+    backdrop-filter: blur(10px);
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    z-index: 999;
+    z-index: 2000;
 }
 
 .overlay-card {
@@ -195,7 +195,7 @@ body {
     display: flex; 
     flex-direction: column; 
     gap: 12px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .brand-badge {
@@ -242,15 +242,15 @@ body {
 .overlay-btn.accent { background: #0f172a; width: auto; padding: 0 18px; }
 .action-btn.accent { background: #0f172a; }
 
-.room-wait-box { background: #eff6ff; border: 1.5px dashed var(--primary-blue); padding: 14px; border-radius: 16px; }
+.room-wait-box { background: #eff6ff; border: 1.5px dashed var(--primary-blue); padding: 14px; border-radius: 16px; margin-top: 6px; }
 .wait-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
-.room-code-text { font-size: 1.4rem; font-weight: 800; color: var(--primary-blue); letter-spacing: 2px; margin-bottom: 10px; }
+.room-code-text { font-size: 1.5rem; font-weight: 800; color: var(--primary-blue); letter-spacing: 3px; margin-bottom: 10px; }
 
 .game-action-buttons { display: flex; gap: 8px; width: 100%; }
 .hidden { display: none !important; }
 
 /* Leaderboard Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2500; }
 .modal-card { background: white; padding: 24px; border-radius: 20px; width: 88%; max-width: 340px; text-align: center; }
 .leaderboard-list { margin: 16px 0; max-height: 220px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; }
 .lb-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-weight: 600; }
