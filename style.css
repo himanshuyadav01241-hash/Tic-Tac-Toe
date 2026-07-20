@@ -1,9 +1,8 @@
 :root {
     --primary-blue: #2563eb;
     --primary-blue-hover: #1d4ed8;
-    --accent-blue: #3b82f6;
-    --light-blue-bg: #eff6ff;
-    --glass-bg: rgba(255, 255, 255, 0.95);
+    --accent-red: #ef4444;
+    --glass-bg: rgba(255, 255, 255, 0.98);
     --glass-border: rgba(226, 232, 240, 0.8);
     --text-color: #1e293b; 
     --text-muted: #64748b;
@@ -21,25 +20,18 @@ body {
     display: flex; justify-content: center; align-items: center;
     padding: 15px; color: var(--text-color);
     position: relative; overflow-x: hidden;
+    background: #0f172a;
 }
 
-/* Background image - No dark box shadow overlays */
+/* Background image */
 .background-overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
     background: url('bg.png') no-repeat center center / cover;
-    z-index: -2;
+    z-index: 1;
 }
 
-body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(15, 23, 42, 0.35); /* Lightweight soft tint */
-    z-index: -1;
-}
-
-/* Header & Top Bar Navigation */
+/* App Header Bar */
 .app-top-bar {
     position: fixed; top: 15px; left: 15px; right: 15px;
     display: flex; justify-content: space-between; align-items: center;
@@ -48,7 +40,7 @@ body::before {
 
 .profile-bar, .header-right-controls { pointer-events: auto; }
 
-/* Enhanced Profile & Sign-Out Bar */
+/* Profile Bar */
 .profile-bar {
     display: flex; align-items: center; gap: 10px;
     background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -59,7 +51,9 @@ body::before {
 .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--primary-blue); }
 .user-info { display: flex; flex-direction: column; }
 .user-name-display { font-size: 0.8rem; font-weight: 700; color: var(--text-color); }
-.user-stats-display { font-size: 0.65rem; color: var(--text-muted); font-weight: 600; }
+
+/* Score highlighted in Red */
+.user-stats-display { font-size: 0.68rem; color: var(--accent-red); font-weight: 800; }
 
 .logout-btn {
     background: #fef2f2; border: 1px solid #fecaca; color: #ef4444;
@@ -80,7 +74,7 @@ body::before {
 }
 .icon-btn:active { transform: scale(0.95); }
 
-/* Game Workspace Card */
+/* Game Container - Hidden by default until in room */
 .game-container {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -114,7 +108,9 @@ body::before {
 .vs-divider { font-size: 0.8rem; font-weight: 800; color: #94a3b8; }
 .avatar { font-size: 1.4rem; margin-bottom: 2px; }
 .player-name { font-size: 0.8rem; font-weight: 700; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.score { font-size: 1.2rem; font-weight: 800; color: var(--primary-blue); }
+
+/* In-game Red Score Display */
+.score { font-size: 1.2rem; font-weight: 800; color: var(--accent-red); }
 
 .active-room-badge {
     display: flex; align-items: center; gap: 8px; background: #eff6ff;
@@ -146,10 +142,9 @@ body::before {
 .chat-form input { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; outline: none; }
 .chat-send-btn { background: var(--primary-blue); color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; }
 
-/* Overlay Popup (Sleek Clean Glass) */
+/* FIXED OVERLAY POPUP - No ghost copy behind card */
 .overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     display: flex; justify-content: center; align-items: center; z-index: 999;
 }
 
@@ -157,7 +152,7 @@ body::before {
     background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.9);
     padding: 28px 24px; border-radius: 24px; text-align: center;
     width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
 .brand-badge {
@@ -175,22 +170,13 @@ body::before {
 .form-stack input, .join-room-box input {
     width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid #cbd5e1;
     background: #f8fafc; font-size: 0.9rem; outline: none; color: #0f172a; font-weight: 500;
-    transition: border-color 0.2s, background-color 0.2s;
 }
 
-.form-stack input:focus, .join-room-box input:focus {
-    border-color: var(--primary-blue); background: #ffffff;
-}
-
-/* Dynamic Google Button State */
 .google-btn {
     width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
     background: #ffffff; border: 1.5px solid #cbd5e1; padding: 11px; border-radius: 12px;
     font-weight: 600; color: #334155; font-size: 0.85rem; cursor: pointer;
-    transition: all 0.2s ease;
 }
-
-.google-btn:hover { background: #f8fafc; border-color: #94a3b8; }
 
 .google-btn.signed-in {
     background: #f0fdf4; border-color: #86efac; color: #166534;
@@ -199,7 +185,7 @@ body::before {
 
 .or-divider { display: flex; align-items: center; font-size: 0.65rem; color: #94a3b8; font-weight: 800; margin: 4px 0; }
 .or-divider::before, .or-divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
-.or-divider span { padding: 0 8px; letter-spacing: 0.5px; }
+.or-divider span { padding: 0 8px; }
 
 .lobby-actions { display: flex; flex-direction: column; gap: 10px; }
 .join-room-box { display: flex; gap: 8px; }
@@ -214,7 +200,6 @@ body::before {
 .overlay-btn.primary:hover, .action-btn:hover { background: var(--primary-blue-hover); }
 
 .overlay-btn.accent { background: #0f172a; width: auto; padding: 0 18px; }
-.overlay-btn.accent:hover { background: #1e293b; }
 
 .room-wait-box { background: #eff6ff; border: 1.5px dashed var(--primary-blue); padding: 14px; border-radius: 16px; }
 .wait-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
@@ -224,7 +209,9 @@ body::before {
 .hidden { display: none !important; }
 
 /* Leaderboard Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-card { background: white; padding: 24px; border-radius: 20px; width: 88%; max-width: 340px; text-align: center; }
 .leaderboard-list { margin: 16px 0; max-height: 220px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; }
 .lb-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-weight: 600; }
+.lb-row.my-account { background: #fef2f2; border-color: #fecaca; }
+.lb-score { color: var(--accent-red); font-weight: 800; }
