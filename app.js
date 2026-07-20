@@ -131,7 +131,7 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- MOBILE QUICK CHAT PREVIEW NOTIFICATION ---
+// --- QUICK CHAT TOAST (MOBILE PREVIEW) ---
 function showChatToast(sender, text) {
     let toast = document.getElementById('chat-toast');
     if (!toast) {
@@ -258,7 +258,6 @@ function getPlayerName() {
     return (usernameInput && usernameInput.value.trim()) || "Guest_" + Math.floor(1000 + Math.random() * 9000);
 }
 
-// --- CREATE ROOM (Shows Code & Waits for Opponent) ---
 if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
         const name = getPlayerName();
@@ -279,10 +278,11 @@ if (createRoomBtn) {
             createdAt: serverTimestamp()
         });
 
-        // Display waiting state clearly without loading full board game UI yet
+        // Show Waiting Lobby State Properly
         if (roomWaitBox) roomWaitBox.classList.remove('hidden');
         if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
-        if (createRoomBtn) createRoomBtn.classList.add('hidden');
+        if (joinOverlay) joinOverlay.classList.remove('hidden'); 
+        if (gameContainer) gameContainer.classList.add('hidden');
 
         listenToRoom(currentRoomCode);
     });
@@ -336,18 +336,23 @@ function listenToRoom(code) {
 
 // --- GAME UI UPDATE ---
 function updateGameUI(room) {
+    // 1. WAITING LOBBY
     if (room.status === 'waiting') {
-        // Keep game board hidden, show only waiting lobby with room code
+        if (joinOverlay) joinOverlay.classList.remove('hidden');
+        if (gameContainer) gameContainer.classList.add('hidden');
         if (roomWaitBox) roomWaitBox.classList.remove('hidden');
         if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
-        if (statusText) statusText.textContent = "Waiting for an opponent to join...";
         return;
     }
 
-    // Room is Active or Finished: Show Game
+    // 2. ACTIVE / FINISHED MATCH
     if (roomWaitBox) roomWaitBox.classList.add('hidden');
     if (joinOverlay) joinOverlay.classList.add('hidden');
     if (gameContainer) gameContainer.classList.remove('hidden');
+
+    // Force Chat Button Visible for Both PC and Mobile
+    if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
+    if (chatBox) chatBox.classList.remove('hidden');
 
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
@@ -365,7 +370,6 @@ function updateGameUI(room) {
         if (board) board.classList.remove('disabled');
         if (rematchBtn) rematchBtn.classList.add('hidden');
         if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
-        if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
 
         if (statusText) {
             if (room.turn === playerSymbol) {
@@ -477,7 +481,6 @@ if (rematchBtn) {
 
 function cleanupAndLeave() {
     if (currentRoomCode) {
-        // Completely delete room and associated chat when leaving
         remove(ref(db, `rooms/${currentRoomCode}`));
         remove(ref(db, `chats/${currentRoomCode}`));
     }
@@ -486,7 +489,6 @@ function cleanupAndLeave() {
 
 if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', cleanupAndLeave);
 
-// Handle browser tab close/page refresh
 window.addEventListener('beforeunload', () => {
     if (currentRoomCode) {
         remove(ref(db, `rooms/${currentRoomCode}`));
@@ -517,7 +519,6 @@ function listenToChat(code) {
             chatMessages.appendChild(msgDiv);
         });
 
-        // Trigger Mobile Quick Toast Notification for incoming opponent messages
         if (messages.length > lastMessageCount && lastMessageCount > 0) {
             const latestMsg = messages[messages.length - 1];
             if (latestMsg.sender !== getPlayerName()) {
