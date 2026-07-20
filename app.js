@@ -6,15 +6,16 @@ import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// ⚠️ STEP 1: Replace these credentials with your actual Firebase project settings!
+// --- YOUR FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
+    authDomain: "tictactoe-e747b.firebaseapp.com",
+    databaseURL: "https://tictactoe-e747b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "tictactoe-e747b",
+    storageBucket: "tictactoe-e747b.firebasestorage.app",
+    messagingSenderId: "864419563280",
+    appId: "1:864419563280:web:ed84b02a67e0d8e29cc795",
+    measurementId: "G-R8M0VCC2WC"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -206,11 +207,7 @@ if (googleLoginBtn) {
                 showToast("Logged in successfully!", "success", "✅");
             } catch (error) {
                 console.error(error);
-                if (error.code === 'auth/api-key-not-valid') {
-                    showToast("Invalid Firebase API Key! Update app.js config.", "error", "🔑");
-                } else {
-                    showToast(error.message, "error", "🚫");
-                }
+                showToast(error.message, "error", "🚫");
             }
         }
     });
@@ -249,7 +246,7 @@ if (createRoomBtn) {
 
             listenToRoomUpdates(currentRoomCode);
         } catch (err) {
-            showToast("Database error! Check your Firebase rules.", "error", "⚠️");
+            showToast("Database error! Check Realtime Database rules.", "error", "⚠️");
         }
     });
 }
