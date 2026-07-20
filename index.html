@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Background Overlay Image -->
     <div class="background-overlay"></div>
 
     <!-- Top Navigation Bar -->
@@ -21,6 +22,7 @@
         </div>
         <div class="header-right-controls">
             <button id="leaderboard-btn" class="icon-btn" title="Leaderboard">🏆</button>
+            <button id="music-toggle-btn" class="icon-btn" title="Toggle Music">🎵</button>
         </div>
     </div>
 
@@ -67,17 +69,18 @@
             </div>
 
             <div class="game-action-buttons">
-                <button id="rematch-btn" class="action-btn hidden">Play Again 🔄</button>
+                <!-- "Next Round" visible ONLY to Host when game ends -->
+                <button id="rematch-btn" class="action-btn hidden">Next Round 🔄</button>
                 <button id="leave-room-btn" class="action-btn accent hidden">Leave Room 🚪</button>
             </div>
 
             <!-- Mobile Chat Toggle Button -->
             <button id="toggle-chat-btn" class="mobile-chat-toggle hidden">
-                💬 Room Chat <span id="chat-badge" class="chat-badge hidden"></span>
+                💬 Room Chat
             </button>
         </div>
 
-        <!-- Responsive Chat Sidebar / Drawer -->
+        <!-- Responsive Chat Sidebar / Mobile Drawer -->
         <aside id="chat-box" class="chat-sidebar hidden">
             <div class="chat-header">
                 <h3>💬 Live Room Chat</h3>
@@ -131,6 +134,9 @@
             <button id="close-leaderboard-btn" class="overlay-btn accent">Close</button>
         </div>
     </div>
+
+    <!-- Background Audio File -->
+    <audio id="bg-music" loop src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3"></audio>
 
     <script type="module" src="app.js"></script>
 </body>
