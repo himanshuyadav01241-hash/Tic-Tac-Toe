@@ -23,6 +23,9 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
+// --- MASTER DEVELOPER ACCOUNT ---
+const MASTER_DEVELOPER_EMAIL = "himanshu.yadav01241@gmail.com";
+
 let currentUser = null;
 let currentRoomId = null;
 let playerSymbol = null;
@@ -110,7 +113,7 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
-        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Developer';
+        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
         if (profileBar) profileBar.classList.remove('hidden');
 
         if (usernameInput) {
@@ -126,8 +129,17 @@ onAuthStateChanged(auth, async (user) => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
             if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
+            // Update email in database if missing
+            if (!snapshot.val().email && user.email) {
+                await update(userRef, { email: user.email });
+            }
         } else {
-            await set(userRef, { name: user.displayName, wins: 0, isDeveloper: true });
+            await set(userRef, { 
+                name: user.displayName, 
+                email: user.email || '',
+                wins: 0, 
+                isDeveloper: (user.email === MASTER_DEVELOPER_EMAIL) 
+            });
             if (userStatsDisplay) userStatsDisplay.textContent = 'Wins: 0';
         }
     } else {
@@ -143,7 +155,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- CHANGE NAME / MANAGE PROFILE (UPDATES EVERYWHERE & #1 RANK) ---
+// --- CHANGE NAME / MANAGE PROFILE (SYNC EVERYWHERE) ---
 if (editProfileBtn) {
     editProfileBtn.addEventListener('click', async () => {
         const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
@@ -157,9 +169,12 @@ if (editProfileBtn) {
                 // 1. Update Firebase Auth User Profile
                 await updateProfile(currentUser, { displayName: trimmedName });
                 
-                // 2. Update Database Record for User (so Leaderboard #1 updates)
+                // 2. Update Database Record
                 const userRef = ref(db, `users/${currentUser.uid}`);
-                await update(userRef, { name: trimmedName });
+                await update(userRef, { 
+                    name: trimmedName,
+                    email: currentUser.email || '' 
+                });
 
                 // 3. Update Profile UI elements
                 if (userNameDisplay) userNameDisplay.textContent = trimmedName;
@@ -168,7 +183,7 @@ if (editProfileBtn) {
 
             if (usernameInput) usernameInput.value = trimmedName;
 
-            // 4. Update name in active game room live (Scoreboard & Turn indicator)
+            // 4. Update name in active game room live
             if (currentRoomId && playerSymbol) {
                 const roomRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
                 await update(roomRef, { name: trimmedName });
@@ -495,7 +510,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC (DEVELOPER ALWAYS PINNED AT #1 WITH UPDATED NAME) ---
+// --- LEADERBOARD LOGIC (MAIN EMAIL PERMANENTLY PINNED AT #1) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -515,29 +530,37 @@ if (leaderboardBtn) {
             allUsers.push({
                 uid: child.key,
                 name: val.name || 'Anonymous',
+                email: val.email || '',
                 wins: val.wins || 0,
                 isGuest: val.isGuest || child.key.startsWith('guest_')
             });
         });
 
-        // 1. Get current active account / owner details
-        const myUid = currentUser ? currentUser.uid : null;
-        let developerUserInDb = allUsers.find(u => u.uid === myUid);
+        // 1. Find your main developer account by matching your Gmail address
+        let developerUser = allUsers.find(u => u.email === MASTER_DEVELOPER_EMAIL);
         
-        const devName = (currentUser ? currentUser.displayName : null) || 
-                        (developerUserInDb ? developerUserInDb.name : null) || 
-                        usernameInput?.value.trim() || 
-                        'Himanshu Yadav';
+        // Dynamic name resolution for developer
+        let devName = 'Himanshu Yadav';
+        let devWins = 0;
 
-        const devWins = developerUserInDb ? developerUserInDb.wins : 0;
+        if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
+            devName = currentUser.displayName || (developerUser ? developerUser.name : 'Himanshu Yadav');
+        } else if (developerUser) {
+            devName = developerUser.name;
+            devWins = developerUser.wins;
+        }
 
-        // 2. Filter out Developer/Owner account from general player array
-        let otherUsers = allUsers.filter(u => u.uid !== myUid);
+        if (developerUser) {
+            devWins = developerUser.wins;
+        }
 
-        // 3. Sort all remaining users descending by wins
+        // 2. Separate all other players from the main Developer account
+        let otherUsers = allUsers.filter(u => u.email !== MASTER_DEVELOPER_EMAIL);
+
+        // 3. Sort remaining players descending by wins
         otherUsers.sort((a, b) => b.wins - a.wins);
 
-        // 4. Build leaderboard HTML with Developer pinned to #1 using updated name
+        // 4. Build leaderboard HTML with your email locked to #1
         let htmlContent = `
             <div class="lb-row developer-account">
                 <span class="lb-name">#1 ${devName} [Developer]</span>
@@ -547,7 +570,7 @@ if (leaderboardBtn) {
 
         // 5. Append all other players starting from #2
         otherUsers.slice(0, 9).forEach((u, i) => {
-            const rank = i + 2; // Ranks start at #2
+            const rank = i + 2; // Rank starts at #2
             const rowClass = u.isGuest ? 'guest-account' : '';
             const label = u.isGuest ? ' (Guest)' : '';
 
