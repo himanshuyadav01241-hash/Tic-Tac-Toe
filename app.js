@@ -143,7 +143,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- CHANGE NAME / MANAGE PROFILE BUTTON ---
+// --- CHANGE NAME / MANAGE PROFILE (UPDATES EVERYWHERE & #1 RANK) ---
 if (editProfileBtn) {
     editProfileBtn.addEventListener('click', async () => {
         const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
@@ -154,26 +154,27 @@ if (editProfileBtn) {
 
         try {
             if (currentUser) {
-                // Update Firebase Auth profile name
+                // 1. Update Firebase Auth User Profile
                 await updateProfile(currentUser, { displayName: trimmedName });
                 
-                // Update Database user record
+                // 2. Update Database Record for User (so Leaderboard #1 updates)
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 await update(userRef, { name: trimmedName });
 
+                // 3. Update Profile UI elements
                 if (userNameDisplay) userNameDisplay.textContent = trimmedName;
                 if (googleBtn) googleBtn.innerHTML = `✓ Signed in as ${trimmedName.split(' ')[0]}`;
             }
 
             if (usernameInput) usernameInput.value = trimmedName;
 
-            // If inside an active game room, update player name live
+            // 4. Update name in active game room live (Scoreboard & Turn indicator)
             if (currentRoomId && playerSymbol) {
                 const roomRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
                 await update(roomRef, { name: trimmedName });
             }
 
-            alert("Display name updated successfully!");
+            alert("Display name updated everywhere successfully!");
         } catch (err) {
             alert("Failed to update profile: " + err.message);
         }
@@ -494,7 +495,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC (DEVELOPER ALWAYS PINNED AT #1) ---
+// --- LEADERBOARD LOGIC (DEVELOPER ALWAYS PINNED AT #1 WITH UPDATED NAME) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -519,24 +520,28 @@ if (leaderboardBtn) {
             });
         });
 
-        // 1. Identify Developer/Owner account
+        // 1. Get current active account / owner details
         const myUid = currentUser ? currentUser.uid : null;
-        let developerUser = allUsers.find(u => u.uid === myUid) || {
-            name: (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || 'Himanshu Yadav',
-            wins: 0
-        };
+        let developerUserInDb = allUsers.find(u => u.uid === myUid);
+        
+        const devName = (currentUser ? currentUser.displayName : null) || 
+                        (developerUserInDb ? developerUserInDb.name : null) || 
+                        usernameInput?.value.trim() || 
+                        'Himanshu Yadav';
 
-        // 2. Filter out Developer account from general player array
+        const devWins = developerUserInDb ? developerUserInDb.wins : 0;
+
+        // 2. Filter out Developer/Owner account from general player array
         let otherUsers = allUsers.filter(u => u.uid !== myUid);
 
         // 3. Sort all remaining users descending by wins
         otherUsers.sort((a, b) => b.wins - a.wins);
 
-        // 4. Build leaderboard HTML with Developer pinned to #1
+        // 4. Build leaderboard HTML with Developer pinned to #1 using updated name
         let htmlContent = `
             <div class="lb-row developer-account">
-                <span class="lb-name">#1 ${developerUser.name} [Developer]</span>
-                <span class="lb-score">🏆 ${developerUser.wins} Wins</span>
+                <span class="lb-name">#1 ${devName} [Developer]</span>
+                <span class="lb-score">🏆 ${devWins} Wins</span>
             </div>
         `;
 
