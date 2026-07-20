@@ -21,17 +21,19 @@ import {
     limitToLast 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- FIREBASE CONFIGURATION ---
+// --- YOUR FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "YOUR_DATABASE_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
+  authDomain: "tictactoe-e747b.firebaseapp.com",
+  databaseURL: "https://tictactoe-e747b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "tictactoe-e747b",
+  storageBucket: "tictactoe-e747b.firebasestorage.app",
+  messagingSenderId: "864419563280",
+  appId: "1:864419563280:web:ed84b02a67e0d8e29cc795",
+  measurementId: "G-R8M0VCC2WC"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
@@ -99,7 +101,7 @@ let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
 
-// --- AUTHENTICATION ---
+// --- AUTHENTICATION LISTENERS ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -123,8 +125,15 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-googleLoginBtn.addEventListener('click', () => {
-    signInWithPopup(auth, googleProvider).catch((err) => console.error("Login failed:", err));
+// GOOGLE SIGN-IN HANDLER WITH DETAILED ERROR CAPTURE
+googleLoginBtn.addEventListener('click', async () => {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log("Logged in successfully:", result.user);
+    } catch (error) {
+        console.error("Firebase Auth Error:", error);
+        alert(`Sign In Failed: ${error.message} (Code: ${error.code})`);
+    }
 });
 
 logoutBtn.addEventListener('click', (e) => {
@@ -133,19 +142,23 @@ logoutBtn.addEventListener('click', (e) => {
 });
 
 async function syncUserData(user) {
-    const userRef = ref(db, `users/${user.uid}`);
-    const snapshot = await get(userRef);
-    if (!snapshot.exists()) {
-        await set(userRef, {
-            name: user.displayName || "Player",
-            email: user.email,
-            wins: 0,
-            avatar: user.photoURL || 'https://via.placeholder.com/32'
-        });
-        userStatsDisplay.textContent = "Wins: 0";
-    } else {
-        const data = snapshot.val();
-        userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
+    try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+            await set(userRef, {
+                name: user.displayName || "Player",
+                email: user.email,
+                wins: 0,
+                avatar: user.photoURL || 'https://via.placeholder.com/32'
+            });
+            userStatsDisplay.textContent = "Wins: 0";
+        } else {
+            const data = snapshot.val();
+            userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
+        }
+    } catch (err) {
+        console.error("Error syncing user data:", err);
     }
 }
 
@@ -227,9 +240,9 @@ function listenToRoom(code) {
     listenToChat(code);
 }
 
-// --- GAME UI UPDATE ---
+// --- GAME UI MANAGEMENT ---
 function updateGameUI(room) {
-    // Hide the lobby overlay & display the main game board
+    // Hide the entry overlay completely & unhide game workspace
     joinOverlay.classList.add('hidden');
     gameContainer.classList.remove('hidden');
 
@@ -241,12 +254,12 @@ function updateGameUI(room) {
     p1Score.textContent = room.hostScore || 0;
     p2Score.textContent = room.guestScore || 0;
 
-    // Board Render
+    // Render Board Grid
     room.board.forEach((val, idx) => {
         cells[idx].textContent = val;
     });
 
-    // Game state rules
+    // Handle Game Rules & Turns
     if (room.status === 'waiting') {
         statusText.textContent = "Waiting for an opponent to join...";
         board.classList.add('disabled');
@@ -254,8 +267,8 @@ function updateGameUI(room) {
         board.classList.remove('disabled');
         rematchBtn.classList.add('hidden');
         leaveRoomBtn.classList.remove('hidden');
-        toggleChatBtn.classList.remove('hidden');
-        chatBox.classList.remove('hidden');
+        if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
+        if (chatBox) chatBox.classList.remove('hidden');
 
         if (room.turn === playerSymbol) {
             statusText.textContent = "Your Turn! (" + playerSymbol + ")";
@@ -286,7 +299,7 @@ function updateGameUI(room) {
     }
 }
 
-// --- GAMEPLAY CLICKS ---
+// --- BOARD CELL CLICKS ---
 cells.forEach((cell) => {
     cell.addEventListener('click', async () => {
         const index = cell.dataset.index;
@@ -414,33 +427,38 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD ---
+// --- LEADERBOARD MODAL ---
 leaderboardBtn.addEventListener('click', async () => {
     leaderboardModal.classList.remove('hidden');
     leaderboardList.innerHTML = "Loading...";
 
-    const usersRef = query(ref(db, 'users'), orderByChild('wins'), limitToLast(10));
-    const snapshot = await get(usersRef);
+    try {
+        const usersRef = query(ref(db, 'users'), orderByChild('wins'), limitToLast(10));
+        const snapshot = await get(usersRef);
 
-    if (!snapshot.exists()) {
-        leaderboardList.innerHTML = "No records found.";
-        return;
+        if (!snapshot.exists()) {
+            leaderboardList.innerHTML = "No records found.";
+            return;
+        }
+
+        let users = [];
+        snapshot.forEach((child) => users.push(child.val()));
+        users.reverse();
+
+        leaderboardList.innerHTML = "";
+        users.forEach((u, idx) => {
+            const row = document.createElement('div');
+            row.className = 'lb-row';
+            row.innerHTML = `
+                <span class="lb-name">#${idx + 1} ${u.name || 'Player'}</span>
+                <span class="lb-score">${u.wins || 0} Wins</span>
+            `;
+            leaderboardList.appendChild(row);
+        });
+    } catch (err) {
+        leaderboardList.innerHTML = "Failed to load leaderboard.";
+        console.error(err);
     }
-
-    let users = [];
-    snapshot.forEach((child) => users.push(child.val()));
-    users.reverse();
-
-    leaderboardList.innerHTML = "";
-    users.forEach((u, idx) => {
-        const row = document.createElement('div');
-        row.className = 'lb-row';
-        row.innerHTML = `
-            <span class="lb-name">#${idx + 1} ${u.name || 'Player'}</span>
-            <span class="lb-score">${u.wins || 0} Wins</span>
-        `;
-        leaderboardList.appendChild(row);
-    });
 });
 
 closeLeaderboardBtn.addEventListener('click', () => {
@@ -459,7 +477,7 @@ closeProfileModalBtn.addEventListener('click', () => {
     manageProfileModal.classList.add('hidden');
 });
 
-// --- CONTROLS & UTILITIES ---
+// --- AUDIO & COPY UTILITIES ---
 musicToggleBtn.addEventListener('click', () => {
     if (bgMusic.paused) {
         bgMusic.play();
