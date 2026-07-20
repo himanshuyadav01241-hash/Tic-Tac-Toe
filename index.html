@@ -3,41 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic Tac Duel</title>
+    <title>TicTac Duel Arena</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Background Overlay Image -->
+
+    <!-- Background Layer -->
     <div class="background-overlay"></div>
 
     <!-- Top Navigation Bar -->
-    <div class="app-top-bar">
-        <div id="user-profile-bar" class="profile-bar hidden" title="Click to Manage Profile">
-            <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+    <header class="app-top-bar">
+        <div id="user-profile-bar" class="profile-bar hidden">
+            <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/32" alt="Profile">
             <div class="user-info">
                 <span id="user-name-display" class="user-name-display">Player</span>
                 <span id="user-stats-display" class="user-stats-display">Wins: 0</span>
             </div>
-            <button id="logout-btn" class="logout-btn">Sign Out</button>
+            <button id="logout-btn" class="logout-btn">Logout</button>
         </div>
+
         <div class="header-right-controls">
             <button id="leaderboard-btn" class="icon-btn" title="Leaderboard">🏆</button>
             <button id="music-toggle-btn" class="icon-btn" title="Toggle Music">🎵</button>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Game Workspace -->
-    <main class="game-container">
-        <!-- Main Game Area -->
-        <div class="game-main-content">
-            <div class="game-header">
-                <h1><span class="wolf-icon">🐺</span> TicTac Duel</h1>
-                <div id="status-text">Connecting to arena...</div>
+    <!-- FULL-SCREEN LOBBY OVERLAY (Active first) -->
+    <div id="join-overlay" class="overlay">
+        <div class="overlay-card">
+            <span class="brand-badge">🐺 TICTAC DUEL ARENA</span>
+            <h2>Play TicTac Duel</h2>
+            <p class="overlay-subtitle">Enter your name or sign in to sync stats</p>
+
+            <div class="form-stack">
+                <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="15">
+                <button id="google-login-btn" class="google-btn">
+                    <span>Link Account with Google</span>
+                </button>
+                <div id="signed-in-badge" class="google-btn signed-in hidden">
+                    <span>✓ Google Account Connected</span>
+                </div>
             </div>
 
-            <div id="active-room-badge" class="active-room-badge hidden">
-                <span id="game-room-code">ROOM: -----</span>
-                <button id="copy-game-link" class="icon-link-btn" title="Copy Code">📋</button>
+            <div class="or-divider">
+                <span>GAME MODES</span>
+            </div>
+
+            <div class="lobby-actions">
+                <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
+                
+                <div class="join-room-box">
+                    <input type="text" id="room-code-input" placeholder="ROOM CODE..." maxlength="6">
+                    <button id="join-code-btn" class="overlay-btn accent">Join</button>
+                </div>
+            </div>
+
+            <!-- Waiting Room Box (When room is created) -->
+            <div id="room-wait-box" class="room-wait-box hidden">
+                <p class="wait-label">Share this code with your opponent:</p>
+                <div id="room-code-display" class="room-code-text">------</div>
+                <button id="copy-link-btn" class="action-btn">📋 Copy Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME WORKSPACE (Hidden initially to prevent background bleed) -->
+    <main id="game-container" class="game-container hidden">
+        
+        <section class="game-main-content">
+            <div class="game-header">
+                <h1><span class="wolf-icon">🐺</span> TicTac Duel</h1>
+                <p id="status-text">Connecting to game arena...</p>
             </div>
 
             <div class="scoreboard">
@@ -49,9 +85,14 @@
                 <div class="vs-divider">VS</div>
                 <div id="p2-box" class="player-box">
                     <span class="avatar">⭕</span>
-                    <span id="p2-name" class="player-name">Waiting...</span>
+                    <span id="p2-name" class="player-name">Guest</span>
                     <span id="p2-score" class="score">0</span>
                 </div>
+            </div>
+
+            <div id="active-room-badge" class="active-room-badge hidden">
+                <span id="game-room-code">ROOM: -----</span>
+                <button id="copy-game-link" class="icon-link-btn" title="Copy Code">📋</button>
             </div>
 
             <div class="board-wrapper">
@@ -69,99 +110,56 @@
             </div>
 
             <div class="game-action-buttons">
-                <!-- Visible ONLY to Host when round ends -->
-                <button id="rematch-btn" class="action-btn hidden">Next Round 🔄</button>
+                <button id="rematch-btn" class="action-btn primary hidden">Play Again 🔄</button>
                 <button id="leave-room-btn" class="action-btn accent hidden">Leave Room 🚪</button>
             </div>
 
-            <!-- Mobile Chat Toggle Button -->
-            <button id="toggle-chat-btn" class="mobile-chat-toggle hidden">
-                💬 Room Chat
-            </button>
-        </div>
+            <button id="toggle-chat-btn" class="mobile-chat-toggle hidden">💬 Open Chat</button>
+        </section>
 
-        <!-- Responsive Chat Sidebar / Mobile Drawer -->
+        <!-- CHAT SIDEBAR -->
         <aside id="chat-box" class="chat-sidebar hidden">
             <div class="chat-header">
-                <h3>💬 Live Room Chat</h3>
+                <h3>Arena Live Chat</h3>
                 <button id="close-chat-btn" class="close-chat-btn">✕</button>
             </div>
             <div id="chat-messages" class="chat-messages"></div>
             <form id="chat-form" class="chat-form">
-                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="120" autocomplete="off" />
+                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="100" autocomplete="off">
                 <button type="submit" class="chat-send-btn">Send</button>
             </form>
         </aside>
+
     </main>
 
-    <!-- Join/Lobby Overlay Modal -->
-    <div id="join-overlay" class="overlay">
-        <div class="overlay-card">
-            <div class="brand-badge">🐺 TICTAC DUEL ARENA</div>
-            <h2>Play TicTac Duel</h2>
-            <p id="overlay-subtitle" class="overlay-subtitle">Enter your name or sign in to sync stats</p>
-
-            <div class="form-stack">
-                <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="15" />
-                <button id="google-login-btn" class="google-btn">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google"> Link Account with Google
-                </button>
-                <div id="signed-in-badge" class="signed-in-badge hidden">
-                    ✨ Authenticated Player
-                </div>
-            </div>
-
-            <div class="or-divider"><span>GAME MODES</span></div>
-
-            <div id="lobby-interactive-section" class="lobby-actions">
-                <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
-                <div class="join-room-box">
-                    <input type="text" id="room-code-input" placeholder="ROOM CODE..." maxlength="6" />
-                    <button id="join-code-btn" class="overlay-btn accent">Join</button>
-                </div>
-            </div>
-
-            <div id="room-wait-box" class="room-wait-box hidden">
-                <div class="wait-label">Share this code with your opponent:</div>
-                <div id="room-code-display" class="room-code-text">------</div>
-                <button id="copy-link-btn" class="overlay-btn primary">📋 Copy Room Code</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leaderboard Modal -->
+    <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal hidden">
         <div class="modal-card">
             <h2>🏆 Leaderboard</h2>
-            <div id="leaderboard-list" class="leaderboard-list">Loading...</div>
-            <button id="close-leaderboard-btn" class="overlay-btn accent">Close</button>
+            <div id="leaderboard-list" class="leaderboard-list">Loading top players...</div>
+            <button id="close-leaderboard-btn" class="action-btn primary">Close</button>
         </div>
     </div>
 
-    <!-- Manage Profile Modal -->
+    <!-- PROFILE MANAGEMENT MODAL -->
     <div id="manage-profile-modal" class="modal hidden">
         <div class="modal-card profile-modal-card">
-            <h2>⚙️ Manage Profile</h2>
-            <div class="profile-modal-body">
-                <div class="avatar-container">
-                    <img id="profile-modal-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="profile-preview-avatar">
-                </div>
-                
-                <div class="field-group">
-                    <label for="profile-name-input">Display Name</label>
-                    <input type="text" id="profile-name-input" placeholder="Enter display name..." maxlength="15" />
-                </div>
-
-                <div class="modal-actions">
-                    <button id="save-profile-btn" class="overlay-btn primary">Save Changes</button>
-                    <button id="close-profile-modal-btn" class="overlay-btn accent">Close</button>
-                </div>
+            <h2>Account Details</h2>
+            <div class="avatar-container">
+                <img id="profile-modal-avatar" class="profile-preview-avatar" src="https://via.placeholder.com/70" alt="Avatar">
+            </div>
+            <div class="field-group">
+                <label>Display Name</label>
+                <input type="text" id="profile-name-input" readonly>
+            </div>
+            <div class="modal-actions">
+                <button id="close-profile-modal-btn" class="action-btn primary">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- Background Audio File -->
-    <audio id="bg-music" loop src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3"></audio>
+    <!-- Background Audio -->
+    <audio id="bg-music" src="music.mp3" loop></audio>
 
     <script type="module" src="app.js"></script>
 </body>
