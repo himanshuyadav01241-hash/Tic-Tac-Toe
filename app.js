@@ -3,7 +3,7 @@ import {
     getDatabase, ref, set, get, onValue, update, push, serverTimestamp, onDisconnect 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { 
-    getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
+    getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // --- FIREBASE CONFIG ---
@@ -47,6 +47,7 @@ const profileBar = document.getElementById('user-profile-bar');
 const userAvatar = document.getElementById('user-avatar');
 const userNameDisplay = document.getElementById('user-name-display');
 const userStatsDisplay = document.getElementById('user-stats-display');
+const editProfileBtn = document.getElementById('edit-profile-btn');
 const logoutBtn = document.getElementById('logout-btn');
 
 const statusText = document.getElementById('status-text');
@@ -114,11 +115,10 @@ onAuthStateChanged(auth, async (user) => {
 
         if (usernameInput) {
             usernameInput.value = user.displayName || '';
-            usernameInput.readOnly = true; // Lock input for signed-in account
         }
 
         if (googleBtn) {
-            googleBtn.innerHTML = `✓ Signed in as ${user.displayName.split(' ')[0]}`;
+            googleBtn.innerHTML = `✓ Signed in as ${(user.displayName || 'Dev').split(' ')[0]}`;
             googleBtn.classList.add('signed-in');
         }
 
@@ -135,7 +135,6 @@ onAuthStateChanged(auth, async (user) => {
         if (profileBar) profileBar.classList.add('hidden');
         if (usernameInput) {
             usernameInput.value = '';
-            usernameInput.readOnly = false;
         }
         if (googleBtn) {
             googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
@@ -143,6 +142,43 @@ onAuthStateChanged(auth, async (user) => {
         }
     }
 });
+
+// --- CHANGE NAME / MANAGE PROFILE BUTTON ---
+if (editProfileBtn) {
+    editProfileBtn.addEventListener('click', async () => {
+        const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
+        const newName = prompt("Enter your new display name:", currentName);
+
+        if (!newName || !newName.trim()) return;
+        const trimmedName = newName.trim();
+
+        try {
+            if (currentUser) {
+                // Update Firebase Auth profile name
+                await updateProfile(currentUser, { displayName: trimmedName });
+                
+                // Update Database user record
+                const userRef = ref(db, `users/${currentUser.uid}`);
+                await update(userRef, { name: trimmedName });
+
+                if (userNameDisplay) userNameDisplay.textContent = trimmedName;
+                if (googleBtn) googleBtn.innerHTML = `✓ Signed in as ${trimmedName.split(' ')[0]}`;
+            }
+
+            if (usernameInput) usernameInput.value = trimmedName;
+
+            // If inside an active game room, update player name live
+            if (currentRoomId && playerSymbol) {
+                const roomRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
+                await update(roomRef, { name: trimmedName });
+            }
+
+            alert("Display name updated successfully!");
+        } catch (err) {
+            alert("Failed to update profile: " + err.message);
+        }
+    });
+}
 
 if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
@@ -183,7 +219,6 @@ if (createRoomBtn) {
             winner: null
         });
 
-        // Set disconnect trigger so remaining user is notified if player quits
         const p1StatusRef = ref(db, `rooms/${roomId}/p1/connected`);
         onDisconnect(p1StatusRef).set(false);
 
@@ -216,7 +251,6 @@ if (joinCodeBtn) {
             status: 'playing'
         });
 
-        // Set disconnect trigger for Player 2
         const p2StatusRef = ref(db, `rooms/${roomId}/p2/connected`);
         onDisconnect(p2StatusRef).set(false);
 
@@ -250,13 +284,11 @@ function listenToRoom(roomId) {
         const room = snapshot.val();
         if (!room) return;
 
-        // Auto-close Host's wait overlay when opponent joins
         if (room.status === 'playing') {
             if (overlay) overlay.classList.add('hidden');
             if (gameContainer) gameContainer.classList.remove('hidden');
         }
 
-        // DISCONNECT / QUIT DETECTION: If player left, declare remaining player winner
         if (room.status === 'playing') {
             if (room.p1 && room.p1.connected === false) {
                 update(roomRef, { status: 'abandoned', winner: 'O' });
@@ -289,7 +321,6 @@ function listenToRoom(roomId) {
             }
             if (rematchBtn) rematchBtn.classList.add('hidden');
         } else if (room.status === 'abandoned') {
-            // Player quit: keep screen open and announce default victory
             gameActive = false;
             if (boardEl) boardEl.classList.add('disabled');
             const winnerSymbol = room.winner;
@@ -358,7 +389,6 @@ cells.forEach((cell) => {
 
                 const winnerObj = isP1 ? room.p1 : room.p2;
                 if (winnerObj.id) {
-                    // Update win count for both registered and guest users
                     const userWinRef = ref(db, `users/${winnerObj.id}`);
                     const winSnap = await get(userWinRef);
                     const currentWins = winSnap.exists() ? (winSnap.val().wins || 0) : 0;
@@ -464,7 +494,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC WITH GUESTS & RED DEVELOPER HIGHLIGHT ---
+// --- LEADERBOARD LOGIC (DEVELOPER ALWAYS PINNED AT #1) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -478,10 +508,10 @@ if (leaderboardBtn) {
             return;
         }
 
-        let users = [];
+        let allUsers = [];
         snapshot.forEach((child) => {
             const val = child.val();
-            users.push({
+            allUsers.push({
                 uid: child.key,
                 name: val.name || 'Anonymous',
                 wins: val.wins || 0,
@@ -489,24 +519,43 @@ if (leaderboardBtn) {
             });
         });
 
-        users.sort((a, b) => b.wins - a.wins);
+        // 1. Identify Developer/Owner account
+        const myUid = currentUser ? currentUser.uid : null;
+        let developerUser = allUsers.find(u => u.uid === myUid) || {
+            name: (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || 'Himanshu Yadav',
+            wins: 0
+        };
+
+        // 2. Filter out Developer account from general player array
+        let otherUsers = allUsers.filter(u => u.uid !== myUid);
+
+        // 3. Sort all remaining users descending by wins
+        otherUsers.sort((a, b) => b.wins - a.wins);
+
+        // 4. Build leaderboard HTML with Developer pinned to #1
+        let htmlContent = `
+            <div class="lb-row developer-account">
+                <span class="lb-name">#1 ${developerUser.name} [Developer]</span>
+                <span class="lb-score">🏆 ${developerUser.wins} Wins</span>
+            </div>
+        `;
+
+        // 5. Append all other players starting from #2
+        otherUsers.slice(0, 9).forEach((u, i) => {
+            const rank = i + 2; // Ranks start at #2
+            const rowClass = u.isGuest ? 'guest-account' : '';
+            const label = u.isGuest ? ' (Guest)' : '';
+
+            htmlContent += `
+                <div class="lb-row ${rowClass}">
+                    <span class="lb-name">#${rank} ${u.name}${label}</span>
+                    <span class="lb-score">🏆 ${u.wins} Wins</span>
+                </div>
+            `;
+        });
 
         if (leaderboardList) {
-            leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => {
-                const isMe = currentUser && currentUser.uid === u.uid;
-                // Highlight signed-in developer in RED bold text
-                const isDeveloper = isMe || u.uid === (currentUser ? currentUser.uid : null);
-                
-                const rowClass = isDeveloper ? 'developer-account' : (u.isGuest ? 'guest-account' : '');
-                const label = isDeveloper ? ' [Developer]' : (u.isGuest ? ' (Guest)' : '');
-
-                return `
-                    <div class="lb-row ${rowClass}">
-                        <span class="lb-name">#${i + 1} ${u.name}${label}</span>
-                        <span class="lb-score">🏆 ${u.wins} Wins</span>
-                    </div>
-                `;
-            }).join('');
+            leaderboardList.innerHTML = htmlContent;
         }
     });
 }
