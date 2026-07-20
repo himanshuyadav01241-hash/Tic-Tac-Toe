@@ -340,7 +340,7 @@ if (joinCodeBtn) {
         isHost = false;
         playerSymbol = 'O';
 
-        // Choose starting player randomly
+        // Choose starting player randomly (50% X / 50% O)
         const startingTurn = Math.random() < 0.5 ? 'X' : 'O';
 
         await update(roomRef, {
@@ -539,7 +539,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM ---
+// --- CHAT SYSTEM (DUAL SUPPORT) ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -616,15 +616,17 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD (TOP 10 + GLOBAL ADMIN BLUR CONTROL) ---
+// --- LEADERBOARD & TOGGLE BLUR SYSTEM ---
 if (leaderboardBtn) {
-    leaderboardBtn.addEventListener('click', renderLeaderboard);
+    leaderboardBtn.addEventListener('click', async () => {
+        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+        if (leaderboardList) leaderboardList.innerHTML = "Loading records...";
+
+        await renderLeaderboard();
+    });
 }
 
 async function renderLeaderboard() {
-    if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-    if (leaderboardList) leaderboardList.innerHTML = "Loading top players...";
-
     try {
         const snapshot = await get(ref(db, 'users'));
 
@@ -638,14 +640,11 @@ async function renderLeaderboard() {
             users.push({ uid: child.key, ...child.val() });
         });
 
-        // Separate Developer from Regular Users
         let devUser = users.find(u => isDeveloper(u) || u.isDev);
         let regularUsers = users.filter(u => !(isDeveloper(u) || u.isDev));
 
-        // Sort regular users by wins (descending)
         regularUsers.sort((a, b) => (b.wins || 0) - (a.wins || 0));
 
-        // Assemble leaderboard list
         let finalLeaderboard = [];
         if (devUser) {
             finalLeaderboard.push(devUser);
@@ -654,9 +653,6 @@ async function renderLeaderboard() {
         }
 
         finalLeaderboard = finalLeaderboard.concat(regularUsers);
-
-        // 🎯 STRICT RULE: LIMIT TO TOP 10 PLAYERS ONLY
-        finalLeaderboard = finalLeaderboard.slice(0, 10);
 
         const currentIsDev = isDeveloper(currentUser);
 
@@ -675,12 +671,13 @@ async function renderLeaderboard() {
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
                 const blurredClass = isBlurredForEveryone ? 'globally-blurred' : '';
+                const adminViewClass = (isBlurredForEveryone && currentIsDev) ? 'admin-view' : '';
                 const adminClass = currentIsDev ? 'admin-clickable' : '';
 
                 row.innerHTML = `
                     <span class="lb-name">
                         #${idx + 1} 
-                        <span class="lb-name-text ${blurredClass} ${adminClass}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle global blur' : ''}">
+                        <span class="lb-name-text ${blurredClass} ${adminViewClass} ${adminClass}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle global blur' : ''}">
                             ${nameMarkup}
                         </span>
                     </span>
@@ -690,7 +687,7 @@ async function renderLeaderboard() {
                 leaderboardList.appendChild(row);
             });
 
-            // --- ADMIN ONLY: CLICK TO BLUR / UNBLUR ANY NAME GLOBALLY ---
+            // DEV ONLY: Click listener to toggle blur state
             if (currentIsDev) {
                 const nameSpans = leaderboardList.querySelectorAll('.admin-clickable');
                 nameSpans.forEach(span => {
@@ -706,7 +703,7 @@ async function renderLeaderboard() {
                         await set(userBlurRef, newBlurStatus);
                         
                         showToast(newBlurStatus ? "Name blurred for everyone!" : "Name unblurred for everyone!");
-                        renderLeaderboard();
+                        renderLeaderboard(); // Re-render to update UI instantly
                     });
                 });
             }
@@ -733,6 +730,7 @@ if (userProfileBar) {
     });
 }
 
+// Change Name Functionality
 async function handleNameChange() {
     if (!currentUser) {
         showToast("You must be logged in to change your name.", "error");
@@ -746,9 +744,13 @@ async function handleNameChange() {
     }
 
     try {
+        // 1. Update Firebase Auth Profile
         await updateProfile(currentUser, { displayName: newName });
+
+        // 2. Update Database Record
         await update(ref(db, `users/${currentUser.uid}`), { name: newName });
 
+        // 3. Update Current Active Game Room Name (if in a room)
         if (currentRoomCode) {
             const roomRef = ref(db, `rooms/${currentRoomCode}`);
             if (isHost) {
@@ -758,6 +760,7 @@ async function handleNameChange() {
             }
         }
 
+        // 4. Update Header UI
         if (userNameDisplay) {
             const isDev = isDeveloper(currentUser);
             userNameDisplay.innerHTML = isDev ? renderDevName(newName) : newName;
