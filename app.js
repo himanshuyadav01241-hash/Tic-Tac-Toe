@@ -115,6 +115,18 @@ let roomUnsubscribe = null;
 let chatUnsubscribe = null;
 let lastMessageCount = 0;
 
+// Force clear all page blur styles on initialization
+function enforceClearBackgrounds() {
+    const overlays = [joinOverlay, gameContainer, leaderboardModal, manageProfileModal, chatBox];
+    overlays.forEach(el => {
+        if (el) {
+            el.style.backdropFilter = 'none';
+            el.style.webkitBackdropFilter = 'none';
+        }
+    });
+}
+enforceClearBackgrounds();
+
 // --- EXCLUSIVE DEV DESIGN BUILDER ---
 function renderDevName(nameText) {
     return `<span style="
@@ -138,7 +150,7 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- SMOOTH TOAST NOTIFICATIONS (NO BACKGROUND BLUR) ---
+// --- TOAST NOTIFICATIONS (CLEAR & SHARP) ---
 function showToast(message, type = 'info') {
     let toast = document.getElementById('system-toast');
     if (!toast) {
@@ -149,15 +161,15 @@ function showToast(message, type = 'info') {
             top: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 10px 20px;
             border-radius: 25px;
             font-size: 0.9rem;
             font-weight: 600;
             z-index: 10000;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             pointer-events: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
@@ -201,6 +213,7 @@ getRedirectResult(auth)
     });
 
 onAuthStateChanged(auth, async (user) => {
+    enforceClearBackgrounds();
     if (user) {
         currentUser = user;
         if (usernameInput) {
@@ -304,7 +317,6 @@ if (createRoomBtn) {
         const roomRef = ref(db, `rooms/${currentRoomCode}`);
         const chatRef = ref(db, `chats/${currentRoomCode}`);
 
-        // Handle auto-cleanup if host disconnects
         onDisconnect(roomRef).remove();
         onDisconnect(chatRef).remove();
 
@@ -382,21 +394,9 @@ function listenToRoom(code) {
     listenToChat(code);
 }
 
-// --- GAME UI UPDATE (MATCHES TRANSPARENT BACKGROUND) ---
+// --- GAME UI UPDATE ---
 function updateGameUI(room) {
-    // Ensure overlays do not blur the background or obscure layout
-    if (joinOverlay) {
-        joinOverlay.style.backdropFilter = 'none';
-        joinOverlay.style.webkitBackdropFilter = 'none';
-    }
-    if (leaderboardModal) {
-        leaderboardModal.style.backdropFilter = 'none';
-        leaderboardModal.style.webkitBackdropFilter = 'none';
-    }
-    if (manageProfileModal) {
-        manageProfileModal.style.backdropFilter = 'none';
-        manageProfileModal.style.webkitBackdropFilter = 'none';
-    }
+    enforceClearBackgrounds();
 
     if (room.status === 'waiting') {
         if (joinOverlay) joinOverlay.classList.remove('hidden');
@@ -408,20 +408,11 @@ function updateGameUI(room) {
 
     if (roomWaitBox) roomWaitBox.classList.add('hidden');
     
-    // Completely transparent container layer to blend seamlessly into page background
-    if (joinOverlay) {
-        joinOverlay.classList.add('hidden');
-        joinOverlay.style.background = 'transparent';
-    }
-    if (gameContainer) {
-        gameContainer.classList.remove('hidden');
-        gameContainer.style.background = 'transparent';
-    }
+    if (joinOverlay) joinOverlay.classList.add('hidden');
+    if (gameContainer) gameContainer.classList.remove('hidden');
 
     if (chatBox) {
         chatBox.classList.remove('hidden');
-        chatBox.style.backdropFilter = 'none';
-        chatBox.style.webkitBackdropFilter = 'none';
         if (window.innerWidth > 768) {
             chatBox.style.display = 'flex';
         }
@@ -661,7 +652,7 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD & TOGGLE BLUR SYSTEM ---
+// --- LEADERBOARD & TOGGLE NAME BLUR SYSTEM ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) {
@@ -713,23 +704,23 @@ async function renderLeaderboard() {
                 
                 const isDev = isDeveloper(u) || u.isDev;
                 const rawName = u.name || 'Player';
-                const isBlurredForEveryone = u.isBlurred === true;
+                const isNameBlurred = u.isBlurred === true;
 
                 const nameMarkup = isDev 
                     ? renderDevName(rawName) 
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
-                const blurStyle = isBlurredForEveryone 
-                    ? "opacity: 0.85; transition: opacity 0.3s ease;" 
-                    : "";
+                // Applies CSS text blur when name is set to blurred in state
+                const blurCss = isNameBlurred 
+                    ? "filter: blur(5px); -webkit-filter: blur(5px); opacity: 0.8; user-select: none; transition: all 0.3s ease;" 
+                    : "filter: none; opacity: 1;";
 
-                const adminViewClass = (isBlurredForEveryone && currentIsDev) ? 'admin-view' : '';
                 const adminClass = currentIsDev ? 'admin-clickable' : '';
 
                 row.innerHTML = `
                     <span class="lb-name">
                         #${idx + 1} 
-                        <span class="lb-name-text ${adminViewClass} ${adminClass}" style="${blurStyle}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle blur visibility' : ''}">
+                        <span class="lb-name-text ${adminClass}" style="${blurCss}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle blur state' : ''}">
                             ${nameMarkup}
                         </span>
                     </span>
@@ -739,7 +730,7 @@ async function renderLeaderboard() {
                 leaderboardList.appendChild(row);
             });
 
-            // DEV ONLY: Click listener to toggle blur state
+            // DEV ONLY: Click to toggle individual player name blur
             if (currentIsDev) {
                 const nameSpans = leaderboardList.querySelectorAll('.admin-clickable');
                 nameSpans.forEach(span => {
@@ -756,7 +747,7 @@ async function renderLeaderboard() {
 
                         await set(userBlurRef, newBlurStatus);
                         
-                        showToast(newBlurStatus ? "Name marked hidden" : "Name visible");
+                        showToast(newBlurStatus ? "Name blurred" : "Name visible");
                         renderLeaderboard();
                     });
                 });
