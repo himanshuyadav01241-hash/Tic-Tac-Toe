@@ -131,7 +131,7 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- SMOOTH TOAST NOTIFICATIONS (REPLACES JARRING ALERTS) ---
+// --- SMOOTH TOAST NOTIFICATIONS ---
 function showToast(message, type = 'info') {
     let toast = document.getElementById('system-toast');
     if (!toast) {
@@ -142,7 +142,7 @@ function showToast(message, type = 'info') {
             top: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 23, 42, 0.92);
+            background: rgba(15, 23, 42, 0.95);
             color: #fff;
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 10px 20px;
@@ -354,7 +354,15 @@ function updateGameUI(room) {
     if (joinOverlay) joinOverlay.classList.add('hidden');
     if (gameContainer) gameContainer.classList.remove('hidden');
 
-    // Show Chat Toggle Button for both Desktop & Mobile
+    // Ensure chat element is visible on both PC & Mobile
+    if (chatBox) {
+        chatBox.classList.remove('hidden');
+        // Force display block on PC screen sizes
+        if (window.innerWidth > 768) {
+            chatBox.style.display = 'flex';
+        }
+    }
+
     if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
 
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
@@ -499,7 +507,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM WITH MOBILE TOGGLE FIX ---
+// --- CHAT SYSTEM (DESKTOP + MOBILE DUAL SUPPORT) ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -550,7 +558,6 @@ if (chatForm) {
     });
 }
 
-// TOGGLE CHAT FIX FOR MOBILE & DESKTOP
 if (toggleChatBtn) {
     toggleChatBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -558,6 +565,9 @@ if (toggleChatBtn) {
             chatBox.classList.remove('hidden');
             chatBox.classList.toggle('active');
             chatBox.classList.toggle('open');
+            if (chatBox.style.display === 'none' || chatBox.style.display === '') {
+                chatBox.style.display = 'flex';
+            }
         }
     });
 }
@@ -567,6 +577,9 @@ if (closeChatBtn) {
         if (chatBox) {
             chatBox.classList.remove('active');
             chatBox.classList.remove('open');
+            if (window.innerWidth <= 768) {
+                chatBox.style.display = 'none';
+            }
         }
     });
 }
