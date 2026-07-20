@@ -340,7 +340,6 @@ if (joinCodeBtn) {
         isHost = false;
         playerSymbol = 'O';
 
-        // Choose starting player randomly (50% X / 50% O)
         const startingTurn = Math.random() < 0.5 ? 'X' : 'O';
 
         await update(roomRef, {
@@ -539,7 +538,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM (DUAL SUPPORT) ---
+// --- CHAT SYSTEM ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -693,7 +692,10 @@ async function renderLeaderboard() {
                 nameSpans.forEach(span => {
                     span.addEventListener('click', async (e) => {
                         e.stopPropagation();
-                        const targetUid = span.getAttribute('data-uid');
+                        // Obtain UID directly from target or closest container
+                        const targetElement = e.target.closest('.admin-clickable');
+                        const targetUid = targetElement ? targetElement.getAttribute('data-uid') : null;
+                        
                         if (!targetUid || targetUid === 'dev-id') return;
 
                         const userBlurRef = ref(db, `users/${targetUid}/isBlurred`);
@@ -744,13 +746,9 @@ async function handleNameChange() {
     }
 
     try {
-        // 1. Update Firebase Auth Profile
         await updateProfile(currentUser, { displayName: newName });
-
-        // 2. Update Database Record
         await update(ref(db, `users/${currentUser.uid}`), { name: newName });
 
-        // 3. Update Current Active Game Room Name (if in a room)
         if (currentRoomCode) {
             const roomRef = ref(db, `rooms/${currentRoomCode}`);
             if (isHost) {
@@ -760,7 +758,6 @@ async function handleNameChange() {
             }
         }
 
-        // 4. Update Header UI
         if (userNameDisplay) {
             const isDev = isDeveloper(currentUser);
             userNameDisplay.innerHTML = isDev ? renderDevName(newName) : newName;
