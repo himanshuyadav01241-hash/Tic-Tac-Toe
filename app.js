@@ -6,7 +6,7 @@ import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- YOUR FIREBASE CONFIGURATION ---
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
     authDomain: "tictactoe-e747b.firebaseapp.com",
@@ -105,60 +105,29 @@ function showToast(message, type = 'error', icon = '⚠️') {
     }, 4000);
 }
 
-// --- PROCEDURAL AUDIO SYNTHESIZER ---
-let audioCtx = null;
-let musicInterval = null;
+// --- MUSIC PLAYER (music.mp3) ---
+const bgMusic = new Audio('music.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+
 let isMusicPlaying = false;
-
-function startProceduralMusic() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-
-    const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00];
-    let noteIdx = 0;
-
-    musicInterval = setInterval(() => {
-        if (!isMusicPlaying) return;
-
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(notes[noteIdx % notes.length], audioCtx.currentTime);
-
-        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
-
-        noteIdx++;
-    }, 400);
-}
-
-function stopProceduralMusic() {
-    if (musicInterval) clearInterval(musicInterval);
-}
 
 if (musicToggleBtn) {
     musicToggleBtn.addEventListener('click', () => {
         if (isMusicPlaying) {
-            stopProceduralMusic();
+            bgMusic.pause();
             musicToggleBtn.textContent = '🎵';
             isMusicPlaying = false;
             showToast("Music Paused", "info", "🎵");
         } else {
-            isMusicPlaying = true;
-            startProceduralMusic();
-            musicToggleBtn.textContent = '🔊';
-            showToast("Playing Synth Music", "success", "🔊");
+            bgMusic.play().then(() => {
+                musicToggleBtn.textContent = '🔊';
+                isMusicPlaying = true;
+                showToast("Playing Music", "success", "🔊");
+            }).catch((err) => {
+                console.error("Audio Playback Error:", err);
+                showToast("Could not load music.mp3", "error", "⚠️");
+            });
         }
     });
 }
@@ -440,7 +409,7 @@ function listenToChat(code) {
 if (toggleChatBtn && chatBox) toggleChatBtn.addEventListener('click', () => chatBox.classList.remove('hidden'));
 if (closeChatBtn && chatBox) closeChatBtn.addEventListener('click', () => chatBox.classList.add('hidden'));
 
-// --- OWNER PINNED #1 LEADERBOARD (RED NAME) ---
+// --- OWNER PINNED #1 LEADERBOARD (NO DUPLICATES) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -453,9 +422,14 @@ if (leaderboardBtn) {
             if (snapshot.exists()) {
                 snapshot.forEach((child) => {
                     const val = child.val();
+                    const uid = child.key;
+
+                    // Exclude current logged-in user to avoid repeating under #1 Owner
+                    if (currentUser && uid === currentUser.uid) return;
+
                     if (val && typeof val === 'object') {
                         users.push({ 
-                            uid: child.key, 
+                            uid: uid, 
                             name: val.name || 'Anonymous', 
                             wins: typeof val.wins === 'number' ? val.wins : 0 
                         });
@@ -463,10 +437,8 @@ if (leaderboardBtn) {
                 });
             }
 
-            // Sort other players by wins descending
             users.sort((a, b) => b.wins - a.wins);
 
-            // 👑 PERMANENT #1 OWNER ROW (Always Red)
             const ownerDisplayName = currentUser ? currentUser.displayName : "Himanshu Yadav";
 
             let html = `
@@ -477,9 +449,8 @@ if (leaderboardBtn) {
             `;
 
             if (users.length === 0) {
-                html += `<div style="padding:10px; font-size:0.8rem; color:#64748b;">No other players yet! Play a match to get listed.</div>`;
+                html += `<div style="padding:12px; font-size:0.8rem; color:#64748b;">No other players yet! Play a match to climb up.</div>`;
             } else {
-                // Rank everyone else starting from #2
                 html += users.slice(0, 8).map((u, i) => `
                     <div class="lb-row">
                         <span>#${i + 2} ${u.name}</span>
