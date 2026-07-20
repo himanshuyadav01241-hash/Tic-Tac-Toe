@@ -23,8 +23,6 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('profile');
-googleProvider.addScope('email');
 
 // --- DOM ELEMENTS ---
 const joinOverlay = document.getElementById('join-overlay');
@@ -47,7 +45,6 @@ const logoutBtn = document.getElementById('logout-btn');
 const statusText = document.getElementById('status-text');
 const activeRoomBadge = document.getElementById('active-room-badge');
 const gameRoomCode = document.getElementById('game-room-code');
-const copyGameLink = document.getElementById('copy-game-link');
 
 const p1Name = document.getElementById('p1-name');
 const p1Score = document.getElementById('p1-score');
@@ -75,6 +72,13 @@ const leaderboardList = document.getElementById('leaderboard-list');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const musicToggleBtn = document.getElementById('music-toggle-btn');
 
+// --- GUEST DEVICE ID SETUP ---
+let guestId = localStorage.getItem('guest_player_id');
+if (!guestId) {
+    guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('guest_player_id', guestId);
+}
+
 // --- STATE VARIABLES ---
 let currentUser = null;
 let currentRoomCode = null;
@@ -88,7 +92,7 @@ const WINNING_COMBOS = [
     [0, 4, 8], [2, 4, 6]
 ];
 
-// --- TOAST NOTIFICATION SYSTEM ---
+// --- TOAST NOTIFICATIONS ---
 function showToast(message, type = 'error', icon = '⚠️') {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
@@ -100,16 +104,13 @@ function showToast(message, type = 'error', icon = '⚠️') {
     toastIcon.textContent = icon;
     toast.className = `toast ${type}`;
 
-    setTimeout(() => {
-        toast.classList.add('hidden');
-    }, 4000);
+    setTimeout(() => toast.classList.add('hidden'), 4000);
 }
 
-// --- MUSIC PLAYER (music.mp3) ---
+// --- MUSIC PLAYER ---
 const bgMusic = new Audio('music.mp3');
 bgMusic.loop = true;
 bgMusic.volume = 0.5;
-
 let isMusicPlaying = false;
 
 if (musicToggleBtn) {
@@ -124,71 +125,59 @@ if (musicToggleBtn) {
                 musicToggleBtn.textContent = '🔊';
                 isMusicPlaying = true;
                 showToast("Playing Music", "success", "🔊");
-            }).catch((err) => {
-                console.error("Audio Playback Error:", err);
-                showToast("Could not load music.mp3", "error", "⚠️");
+            }).catch(() => {
+                showToast("Click again to play music", "error", "🎵");
             });
         }
     });
 }
 
-// --- AUTHENTICATION ---
+// --- AUTHENTICATION & GUEST SYNC ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         if (usernameInput) usernameInput.value = user.displayName || 'Player';
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
         if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
-        
         if (userProfileBar) userProfileBar.classList.remove('hidden');
-        if (googleLoginBtn) {
-            googleLoginBtn.classList.add('signed-in');
-            googleLoginBtn.innerHTML = `✓ ${user.displayName ? user.displayName.split(' ')[0] : 'Connected'}`;
-        }
 
-        try {
-            const userRef = ref(db, `users/${user.uid}`);
-            const snap = await get(userRef);
-            if (!snap.exists()) {
-                await set(userRef, { name: user.displayName || 'Player', wins: 0 });
-                if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
-            } else {
-                if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snap.val().wins || 0}`;
-            }
-        } catch (err) {
-            console.error("User data fetch error:", err);
+        const userRef = ref(db, `users/${user.uid}`);
+        const snap = await get(userRef);
+        if (!snap.exists()) {
+            await set(userRef, { name: user.displayName || 'Player', wins: 0, isGuest: false });
         }
     } else {
         currentUser = null;
         if (userProfileBar) userProfileBar.classList.add('hidden');
-        if (googleLoginBtn) {
-            googleLoginBtn.classList.remove('signed-in');
-            googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google"> Link Account with Google`;
-        }
     }
 });
 
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
-        if (!currentUser) {
-            try {
-                await signInWithPopup(auth, googleProvider);
-                showToast("Logged in successfully!", "success", "✅");
-            } catch (error) {
-                console.error(error);
-                showToast(error.message, "error", "🚫");
-            }
+        try {
+            await signInWithPopup(auth, googleProvider);
+            showToast("Signed in!", "success", "✅");
+        } catch (err) {
+            showToast("Login failed", "error", "🚫");
         }
     });
 }
 
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        signOut(auth).then(() => location.reload()).catch(console.error);
-    });
+if (logoutBtn) logoutBtn.addEventListener('click', () => signOut(auth).then(() => location.reload()));
+
+// Save Guest or Logged user profile to DB so leaderboard records them
+async function syncUserProfile(name) {
+    const uid = currentUser ? currentUser.uid : guestId;
+    const userRef = ref(db, `users/${uid}`);
+    const snap = await get(userRef);
+    if (!snap.exists()) {
+        await set(userRef, { name: name, wins: 0, isGuest: !currentUser });
+    } else {
+        await update(userRef, { name: name });
+    }
 }
 
-// --- ROOM & MATCHMAKING LOGIC ---
+// --- ROOM LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -196,27 +185,25 @@ function generateRoomCode() {
 if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
         const playerName = usernameInput ? (usernameInput.value.trim() || 'Host') : 'Host';
+        await syncUserProfile(playerName);
+
         currentRoomCode = generateRoomCode();
         playerRole = 'p1';
 
-        try {
-            const roomRef = ref(db, `rooms/${currentRoomCode}`);
-            await set(roomRef, {
-                p1: { name: playerName, score: 0 },
-                p2: { name: 'Waiting...', score: 0 },
-                board: Array(9).fill(""),
-                turn: 'p1',
-                status: 'waiting'
-            });
+        const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        await set(roomRef, {
+            p1: { name: playerName, score: 0 },
+            p2: { name: 'Waiting...', score: 0 },
+            board: Array(9).fill(""),
+            turn: 'p1',
+            status: 'waiting'
+        });
 
-            if (lobbyInteractiveSection) lobbyInteractiveSection.classList.add('hidden');
-            if (roomWaitBox) roomWaitBox.classList.remove('hidden');
-            if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
+        if (lobbyInteractiveSection) lobbyInteractiveSection.classList.add('hidden');
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
 
-            listenToRoomUpdates(currentRoomCode);
-        } catch (err) {
-            showToast("Database error! Check Realtime Database rules.", "error", "⚠️");
-        }
+        listenToRoomUpdates(currentRoomCode);
     });
 }
 
@@ -225,30 +212,28 @@ if (joinCodeBtn) {
         const code = roomCodeInput ? roomCodeInput.value.trim().toUpperCase() : '';
         const playerName = usernameInput ? (usernameInput.value.trim() || 'Guest') : 'Guest';
 
-        if (!code) return showToast("Please enter a room code!", "error", "✏️");
+        if (!code) return showToast("Enter room code!", "error", "✏️");
 
-        try {
-            const roomRef = ref(db, `rooms/${code}`);
-            const snapshot = await get(roomRef);
+        await syncUserProfile(playerName);
 
-            if (!snapshot.exists()) return showToast("Room code not found!", "error", "🔍");
+        const roomRef = ref(db, `rooms/${code}`);
+        const snapshot = await get(roomRef);
 
-            const data = snapshot.val();
-            if (data.status !== 'waiting' && data.p2.name !== 'Waiting...') {
-                return showToast("Room is full!", "error", "🚫");
-            }
+        if (!snapshot.exists()) return showToast("Room not found!", "error", "🔍");
 
-            currentRoomCode = code;
-            playerRole = 'p2';
-
-            await update(ref(db, `rooms/${code}/p2`), { name: playerName });
-            await update(ref(db, `rooms/${code}`), { status: 'playing' });
-
-            if (joinOverlay) joinOverlay.classList.add('hidden');
-            listenToRoomUpdates(code);
-        } catch (err) {
-            showToast("Could not join room. Check connection.", "error", "⚠️");
+        const data = snapshot.val();
+        if (data.status !== 'waiting' && data.p2.name !== 'Waiting...') {
+            return showToast("Room full!", "error", "🚫");
         }
+
+        currentRoomCode = code;
+        playerRole = 'p2';
+
+        await update(ref(db, `rooms/${code}/p2`), { name: playerName });
+        await update(ref(db, `rooms/${code}`), { status: 'playing' });
+
+        if (joinOverlay) joinOverlay.classList.add('hidden');
+        listenToRoomUpdates(code);
     });
 }
 
@@ -264,6 +249,7 @@ function listenToRoomUpdates(code) {
         if (p2Name) p2Name.textContent = data.p2.name;
         if (p2Score) p2Score.textContent = data.p2.score;
 
+        // FIXED: Render board state immediately
         gameBoard = data.board || Array(9).fill("");
         renderBoard();
 
@@ -275,7 +261,6 @@ function listenToRoomUpdates(code) {
             if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
             if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
             if (chatBox) chatBox.classList.remove('hidden');
-            if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
 
             isMyTurn = (data.turn === playerRole);
 
@@ -315,12 +300,16 @@ function renderBoard() {
     });
 }
 
+// FIXED: Move click logic correctly updates the board BEFORE game ends
 cells.forEach((cell, index) => {
     cell.addEventListener('click', async () => {
         if (!isMyTurn || gameBoard[index] !== "") return;
 
         const symbol = playerRole === 'p1' ? 'X' : 'O';
         gameBoard[index] = symbol;
+
+        // Optimistically render move locally so last mark is visible instantly
+        renderBoard();
 
         const winState = checkWinner();
         const roomRef = ref(db, `rooms/${currentRoomCode}`);
@@ -329,18 +318,27 @@ cells.forEach((cell, index) => {
             const winnerKey = playerRole;
             const currentScore = playerRole === 'p1' ? parseInt(p1Score.textContent) : parseInt(p2Score.textContent);
 
+            // Update board first, then status to 'ended'
+            await update(roomRef, { 
+                board: gameBoard, 
+                status: 'ended', 
+                winner: winnerKey 
+            });
             await update(ref(db, `rooms/${currentRoomCode}/${winnerKey}`), { score: currentScore + 1 });
-            await update(roomRef, { board: gameBoard, status: 'ended', winner: winnerKey });
 
-            if (currentUser) {
-                const userRef = ref(db, `users/${currentUser.uid}`);
-                const snap = await get(userRef);
-                const wins = (snap.val()?.wins || 0) + 1;
-                await update(userRef, { wins });
-                if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${wins}`;
-            }
+            // Increment wins for player/guest
+            const uid = currentUser ? currentUser.uid : guestId;
+            const userRef = ref(db, `users/${uid}`);
+            const snap = await get(userRef);
+            const currentWins = snap.val()?.wins || 0;
+            await update(userRef, { wins: currentWins + 1 });
+
         } else if (winState.isDraw) {
-            await update(roomRef, { board: gameBoard, status: 'ended', winner: 'draw' });
+            await update(roomRef, { 
+                board: gameBoard, 
+                status: 'ended', 
+                winner: 'draw' 
+            });
         } else {
             const nextTurn = playerRole === 'p1' ? 'p2' : 'p1';
             await update(roomRef, { board: gameBoard, turn: nextTurn });
@@ -371,7 +369,7 @@ if (rematchBtn) {
 
 if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', () => location.reload());
 
-// --- CHAT SYSTEM ---
+// --- CHAT LOGIC ---
 if (chatForm) {
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -409,28 +407,28 @@ function listenToChat(code) {
 if (toggleChatBtn && chatBox) toggleChatBtn.addEventListener('click', () => chatBox.classList.remove('hidden'));
 if (closeChatBtn && chatBox) closeChatBtn.addEventListener('click', () => chatBox.classList.add('hidden'));
 
-// --- OWNER PINNED #1 LEADERBOARD (NO DUPLICATES) ---
+// --- LEADERBOARD (SHOWS ALL USERS & GUESTS) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = '<div style="padding:10px;">Fetching Top Players...</div>';
+        if (leaderboardList) leaderboardList.innerHTML = '<div style="padding:10px;">Loading Leaderboard...</div>';
 
         try {
             const snapshot = await get(ref(db, 'users'));
             let users = [];
+            const currentUid = currentUser ? currentUser.uid : guestId;
 
             if (snapshot.exists()) {
                 snapshot.forEach((child) => {
                     const val = child.val();
                     const uid = child.key;
 
-                    // Exclude current logged-in user to avoid repeating under #1 Owner
-                    if (currentUser && uid === currentUser.uid) return;
+                    // Exclude current user from duplicate owner row
+                    if (uid === currentUid) return;
 
                     if (val && typeof val === 'object') {
                         users.push({ 
-                            uid: uid, 
-                            name: val.name || 'Anonymous', 
+                            name: val.name || 'Guest', 
                             wins: typeof val.wins === 'number' ? val.wins : 0 
                         });
                     }
@@ -439,17 +437,17 @@ if (leaderboardBtn) {
 
             users.sort((a, b) => b.wins - a.wins);
 
-            const ownerDisplayName = currentUser ? currentUser.displayName : "Himanshu Yadav";
+            const activeName = (usernameInput && usernameInput.value.trim()) ? usernameInput.value.trim() : "Himanshu Yadav";
 
             let html = `
                 <div class="lb-row owner-row">
-                    <span class="owner-red-name">#1 👑 ${ownerDisplayName}</span>
+                    <span class="owner-red-name">#1 👑 ${activeName}</span>
                     <span class="owner-tag">Owner</span>
                 </div>
             `;
 
             if (users.length === 0) {
-                html += `<div style="padding:12px; font-size:0.8rem; color:#64748b;">No other players yet! Play a match to climb up.</div>`;
+                html += `<div style="padding:12px; font-size:0.8rem; color:#64748b;">No other players yet!</div>`;
             } else {
                 html += users.slice(0, 8).map((u, i) => `
                     <div class="lb-row">
@@ -469,14 +467,3 @@ if (leaderboardBtn) {
 if (closeLeaderboardBtn && leaderboardModal) {
     closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
 }
-
-// --- COPY CODE BUTTONS ---
-if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(currentRoomCode);
-    showToast("Room code copied!", "success", "📋");
-});
-
-if (copyGameLink) copyGameLink.addEventListener('click', () => {
-    navigator.clipboard.writeText(currentRoomCode);
-    showToast("Room code copied!", "success", "📋");
-});
