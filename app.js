@@ -39,6 +39,7 @@ const googleProvider = new GoogleAuthProvider();
 
 // --- DOM ELEMENTS ---
 const joinOverlay = document.getElementById('join-overlay');
+const gameContainer = document.getElementById('game-container');
 const usernameInput = document.getElementById('username-input');
 const googleLoginBtn = document.getElementById('google-login-btn');
 const signedInBadge = document.getElementById('signed-in-badge');
@@ -82,7 +83,6 @@ const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const manageProfileModal = document.getElementById('manage-profile-modal');
 const profileModalAvatar = document.getElementById('profile-modal-avatar');
 const profileNameInput = document.getElementById('profile-name-input');
-const saveProfileBtn = document.getElementById('save-profile-btn');
 const closeProfileModalBtn = document.getElementById('close-profile-modal-btn');
 
 const chatBox = document.getElementById('chat-box');
@@ -95,10 +95,9 @@ const closeChatBtn = document.getElementById('close-chat-btn');
 // --- GAME STATE ---
 let currentUser = null;
 let currentRoomCode = null;
-let playerSymbol = null; // 'X' or 'O'
+let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
-let chatUnsubscribe = null;
 
 // --- AUTHENTICATION ---
 onAuthStateChanged(auth, async (user) => {
@@ -150,7 +149,7 @@ async function syncUserData(user) {
     }
 }
 
-// --- ROOM LOGIC ---
+// --- ROOM CREATION & JOINING ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -173,7 +172,7 @@ createRoomBtn.addEventListener('click', async () => {
         guestScore: 0,
         board: Array(9).fill(""),
         turn: 'X',
-        status: 'waiting', // waiting, active, finished
+        status: 'waiting',
         winner: "",
         createdAt: serverTimestamp()
     });
@@ -228,8 +227,12 @@ function listenToRoom(code) {
     listenToChat(code);
 }
 
+// --- GAME UI UPDATE ---
 function updateGameUI(room) {
+    // Hide the lobby overlay & display the main game board
     joinOverlay.classList.add('hidden');
+    gameContainer.classList.remove('hidden');
+
     gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
     activeRoomBadge.classList.remove('hidden');
 
@@ -238,12 +241,12 @@ function updateGameUI(room) {
     p1Score.textContent = room.hostScore || 0;
     p2Score.textContent = room.guestScore || 0;
 
-    // Render Board
+    // Board Render
     room.board.forEach((val, idx) => {
         cells[idx].textContent = val;
     });
 
-    // Update Turn Highlights & Status Text
+    // Game state rules
     if (room.status === 'waiting') {
         statusText.textContent = "Waiting for an opponent to join...";
         board.classList.add('disabled');
@@ -283,7 +286,7 @@ function updateGameUI(room) {
     }
 }
 
-// --- CELL CLICK / GAMEPLAY LOGIC ---
+// --- GAMEPLAY CLICKS ---
 cells.forEach((cell) => {
     cell.addEventListener('click', async () => {
         const index = cell.dataset.index;
@@ -357,20 +360,18 @@ rematchBtn.addEventListener('click', async () => {
 });
 
 function leaveRoom() {
-    if (currentRoomCode) {
-        if (isHost) {
-            remove(ref(db, `rooms/${currentRoomCode}`));
-        }
+    if (currentRoomCode && isHost) {
+        remove(ref(db, `rooms/${currentRoomCode}`));
     }
     location.reload();
 }
 
 leaveRoomBtn.addEventListener('click', leaveRoom);
 
-// --- CHAT LOGIC ---
+// --- CHAT SYSTEM ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
-    chatUnsubscribe = onValue(chatRef, (snapshot) => {
+    onValue(chatRef, (snapshot) => {
         chatMessages.innerHTML = "";
         if (!snapshot.exists()) return;
 
@@ -401,7 +402,6 @@ chatForm.addEventListener('submit', async (e) => {
     chatInput.value = "";
 });
 
-// Mobile Chat Drawer Toggle
 if (toggleChatBtn) {
     toggleChatBtn.addEventListener('click', () => {
         chatBox.classList.add('active');
@@ -428,17 +428,13 @@ leaderboardBtn.addEventListener('click', async () => {
     }
 
     let users = [];
-    snapshot.forEach((child) => {
-        users.push(child.val());
-    });
-
-    users.reverse(); // Highest wins first
+    snapshot.forEach((child) => users.push(child.val()));
+    users.reverse();
 
     leaderboardList.innerHTML = "";
     users.forEach((u, idx) => {
         const row = document.createElement('div');
-        const isDev = u.email && u.email.includes("dev"); // Optional highlight rule
-        row.className = `lb-row ${isDev ? 'developer-account' : ''}`;
+        row.className = 'lb-row';
         row.innerHTML = `
             <span class="lb-name">#${idx + 1} ${u.name || 'Player'}</span>
             <span class="lb-score">${u.wins || 0} Wins</span>
@@ -451,7 +447,7 @@ closeLeaderboardBtn.addEventListener('click', () => {
     leaderboardModal.classList.add('hidden');
 });
 
-// --- USER PROFILE MODAL ---
+// --- PROFILE MODAL ---
 userProfileBar.addEventListener('click', () => {
     if (!currentUser) return;
     profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/70';
@@ -463,7 +459,7 @@ closeProfileModalBtn.addEventListener('click', () => {
     manageProfileModal.classList.add('hidden');
 });
 
-// --- AUDIO & COPY UTILS ---
+// --- CONTROLS & UTILITIES ---
 musicToggleBtn.addEventListener('click', () => {
     if (bgMusic.paused) {
         bgMusic.play();
