@@ -6,7 +6,7 @@ import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- YOUR FIREBASE CONFIG ---
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
   authDomain: "tictactoe-e747b.firebaseapp.com",
@@ -18,20 +18,20 @@ const firebaseConfig = {
   measurementId: "G-R8M0VCC2WC"
 };
 
-// Initialize Firebase
+// Initialize Firebase App & Services
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// App State Variables
+// App Global State
 let currentUser = null;
 let currentRoomId = null;
 let playerSymbol = null;
 let isMyTurn = false;
 let gameActive = false;
 
-// DOM Elements
+// DOM Elements Selection
 const overlay = document.getElementById('join-overlay');
 const usernameInput = document.getElementById('username-input');
 const googleBtn = document.getElementById('google-login-btn');
@@ -84,12 +84,13 @@ onAuthStateChanged(auth, async (user) => {
         if (profileBar) profileBar.classList.remove('hidden');
         if (usernameInput) usernameInput.value = user.displayName || '';
 
-        // Update Google button to "Signed In" indicator state
+        // UI state for Google Sign-In button
         if (googleBtn) {
             googleBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
             googleBtn.classList.add('signed-in');
         }
 
+        // Sync or initialize user stats in Realtime DB
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
@@ -110,11 +111,11 @@ onAuthStateChanged(auth, async (user) => {
 
 if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
-        if (currentUser) return; // Prevent extra popups if already signed in
+        if (currentUser) return; // Prevent triggering popups if already signed in
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (err) {
-            // Silently handle cancelled popups without alerting user
+            // Silently swallow closed popup errors instead of showing native alert boxes
             if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
                 alert("Google Sign-In failed: " + err.message);
             }
@@ -126,7 +127,7 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => signOut(auth));
 }
 
-// --- ROOM LOGIC ---
+// --- ROOM MANAGEMENT LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -192,7 +193,7 @@ function joinRoom(roomId, symbol) {
     listenToChat(roomId);
 }
 
-// --- GAMEPLAY LISTENER ---
+// --- REALTIME GAMEPLAY SYNCHRONIZATION ---
 function listenToRoom(roomId) {
     const roomRef = ref(db, `rooms/${roomId}`);
     onValue(roomRef, (snapshot) => {
@@ -245,6 +246,7 @@ function renderBoard(boardState) {
     });
 }
 
+// Handling user moves/clicks
 cells.forEach((cell) => {
     cell.addEventListener('click', async () => {
         const index = cell.dataset.index;
@@ -352,11 +354,11 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD ---
+// --- LEADERBOARD SYSTEM ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = 'Loading...';
+        if (leaderboardList) leaderboardList.innerHTML = 'Loading leaderboard...';
 
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
@@ -368,18 +370,27 @@ if (leaderboardBtn) {
 
         let users = [];
         snapshot.forEach((child) => {
-            users.push(child.val());
+            const val = child.val();
+            users.push({
+                uid: child.key,
+                name: val.name || 'Anonymous',
+                wins: val.wins || 0
+            });
         });
 
-        users.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+        // Sort users by wins in descending order
+        users.sort((a, b) => b.wins - a.wins);
 
         if (leaderboardList) {
-            leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => `
-                <div class="lb-row">
-                    <span>#${i + 1} ${u.name || 'Anonymous'}</span>
-                    <span>🏆 ${u.wins || 0} Wins</span>
-                </div>
-            `).join('');
+            leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => {
+                const isMe = currentUser && currentUser.uid === u.uid;
+                return `
+                    <div class="lb-row ${isMe ? 'my-account' : ''}">
+                        <span>#${i + 1} ${u.name} ${isMe ? '(You)' : ''}</span>
+                        <span class="lb-score">🏆 ${u.wins} Wins</span>
+                    </div>
+                `;
+            }).join('');
         }
     });
 }
@@ -390,10 +401,11 @@ if (closeLeaderboardBtn) {
     });
 }
 
+// --- UTILITIES ---
 const copyAction = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+    alert("Room code copied to clipboard!");
 };
 
 if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => copyAction(currentRoomId));
