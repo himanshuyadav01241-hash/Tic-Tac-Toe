@@ -40,7 +40,6 @@ const googleProvider = new GoogleAuthProvider();
 const DEV_EMAIL = "himanshu.yadav01241@gmail.com";
 const DEV_NAME = "Himanshu Yadav";
 
-// Helper function to check if a user object/auth user is the developer
 function isDeveloper(userObj) {
     if (!userObj) return false;
     return (userObj.email === DEV_EMAIL || userObj.name === DEV_NAME || userObj.displayName === DEV_NAME);
@@ -107,6 +106,7 @@ let currentRoomCode = null;
 let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
+let lastMessageCount = 0;
 
 // --- EXCLUSIVE DEV DESIGN BUILDER ---
 function renderDevName(nameText) {
@@ -129,6 +129,48 @@ function renderDevName(nameText) {
         box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
         letter-spacing: 0.5px;
     ">DEV</span>`;
+}
+
+// --- MOBILE QUICK CHAT PREVIEW NOTIFICATION ---
+function showChatToast(sender, text) {
+    let toast = document.getElementById('chat-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'chat-toast';
+        toast.style.cssText = `
+            position: fixed;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            z-index: 9999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            max-width: 85%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        `;
+        document.body.appendChild(toast);
+    }
+
+    toast.innerHTML = `<strong style="color:#ef4444;">${sender}:</strong> ${text}`;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0px)';
+
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(-10px)';
+    }, 3000);
 }
 
 // --- AUTHENTICATION ---
@@ -197,7 +239,6 @@ async function syncUserData(user) {
             if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
         } else {
             const data = snapshot.val();
-            // Always ensure developer status stays true in DB
             if (isDev && !data.isDev) {
                 await update(userRef, { isDev: true, email: user.email });
             }
@@ -217,6 +258,7 @@ function getPlayerName() {
     return (usernameInput && usernameInput.value.trim()) || "Guest_" + Math.floor(1000 + Math.random() * 9000);
 }
 
+// --- CREATE ROOM (Shows Code & Waits for Opponent) ---
 if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
         const name = getPlayerName();
@@ -237,8 +279,11 @@ if (createRoomBtn) {
             createdAt: serverTimestamp()
         });
 
+        // Display waiting state clearly without loading full board game UI yet
         if (roomWaitBox) roomWaitBox.classList.remove('hidden');
         if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
+        if (createRoomBtn) createRoomBtn.classList.add('hidden');
+
         listenToRoom(currentRoomCode);
     });
 }
@@ -277,8 +322,8 @@ function listenToRoom(code) {
 
     roomUnsubscribe = onValue(roomRef, (snapshot) => {
         if (!snapshot.exists()) {
-            alert("Room closed by host.");
-            leaveRoom();
+            alert("Room has been closed.");
+            cleanupAndLeave();
             return;
         }
 
@@ -291,6 +336,16 @@ function listenToRoom(code) {
 
 // --- GAME UI UPDATE ---
 function updateGameUI(room) {
+    if (room.status === 'waiting') {
+        // Keep game board hidden, show only waiting lobby with room code
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
+        if (statusText) statusText.textContent = "Waiting for an opponent to join...";
+        return;
+    }
+
+    // Room is Active or Finished: Show Game
+    if (roomWaitBox) roomWaitBox.classList.add('hidden');
     if (joinOverlay) joinOverlay.classList.add('hidden');
     if (gameContainer) gameContainer.classList.remove('hidden');
 
@@ -298,7 +353,7 @@ function updateGameUI(room) {
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
 
     if (p1Name) p1Name.textContent = room.hostName || "Host";
-    if (p2Name) p2Name.textContent = room.guestName || "Waiting...";
+    if (p2Name) p2Name.textContent = room.guestName || "Guest";
     if (p1Score) p1Score.textContent = room.hostScore || 0;
     if (p2Score) p2Score.textContent = room.guestScore || 0;
 
@@ -306,15 +361,11 @@ function updateGameUI(room) {
         if (cells[idx]) cells[idx].textContent = val;
     });
 
-    if (room.status === 'waiting') {
-        if (statusText) statusText.textContent = "Waiting for an opponent to join...";
-        if (board) board.classList.add('disabled');
-    } else if (room.status === 'active') {
+    if (room.status === 'active') {
         if (board) board.classList.remove('disabled');
         if (rematchBtn) rematchBtn.classList.add('hidden');
         if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
         if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
-        if (chatBox) chatBox.classList.remove('hidden');
 
         if (statusText) {
             if (room.turn === playerSymbol) {
@@ -410,7 +461,7 @@ async function incrementWins(uid) {
     if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${currentWins + 1}`;
 }
 
-// --- REMATCH & LEAVE ---
+// --- REMATCH & AUTOMATIC ROOM CLOSURE ON LEAVE ---
 if (rematchBtn) {
     rematchBtn.addEventListener('click', async () => {
         if (!isHost) return;
@@ -424,31 +475,56 @@ if (rematchBtn) {
     });
 }
 
-function leaveRoom() {
-    if (currentRoomCode && isHost) {
+function cleanupAndLeave() {
+    if (currentRoomCode) {
+        // Completely delete room and associated chat when leaving
         remove(ref(db, `rooms/${currentRoomCode}`));
+        remove(ref(db, `chats/${currentRoomCode}`));
     }
     location.reload();
 }
 
-if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', leaveRoom);
+if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', cleanupAndLeave);
 
-// --- CHAT SYSTEM ---
+// Handle browser tab close/page refresh
+window.addEventListener('beforeunload', () => {
+    if (currentRoomCode) {
+        remove(ref(db, `rooms/${currentRoomCode}`));
+        remove(ref(db, `chats/${currentRoomCode}`));
+    }
+});
+
+// --- CHAT SYSTEM WITH PREVIEW TOAST ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
+    lastMessageCount = 0;
+
     onValue(chatRef, (snapshot) => {
         if (!chatMessages) return;
         chatMessages.innerHTML = "";
         if (!snapshot.exists()) return;
 
+        let messages = [];
         snapshot.forEach((child) => {
-            const msg = child.val();
+            messages.push(child.val());
+        });
+
+        messages.forEach((msg) => {
             const msgDiv = document.createElement('div');
             const isMe = msg.sender === getPlayerName();
             msgDiv.className = `chat-msg ${isMe ? 'my-msg' : ''}`;
             msgDiv.innerHTML = `<strong>${msg.sender}:</strong> ${msg.text}`;
             chatMessages.appendChild(msgDiv);
         });
+
+        // Trigger Mobile Quick Toast Notification for incoming opponent messages
+        if (messages.length > lastMessageCount && lastMessageCount > 0) {
+            const latestMsg = messages[messages.length - 1];
+            if (latestMsg.sender !== getPlayerName()) {
+                showChatToast(latestMsg.sender, latestMsg.text);
+            }
+        }
+        lastMessageCount = messages.length;
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 }
@@ -472,7 +548,7 @@ if (chatForm) {
 
 if (toggleChatBtn) {
     toggleChatBtn.addEventListener('click', () => {
-        if (chatBox) chatBox.classList.add('active');
+        if (chatBox) chatBox.classList.toggle('active');
     });
 }
 
@@ -482,7 +558,7 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD (DEV PINNED TO #1 WITH EXCLUSIVE DESIGN) ---
+// --- LEADERBOARD (DEV PINNED TO #1) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -501,19 +577,15 @@ if (leaderboardBtn) {
                 users.push(child.val());
             });
 
-            // 1. Separate Developer account (by email, name, or flag)
             let devUser = users.find(u => isDeveloper(u) || u.isDev);
             let regularUsers = users.filter(u => !(isDeveloper(u) || u.isDev));
 
-            // 2. Sort regular users by wins
             regularUsers.sort((a, b) => (b.wins || 0) - (a.wins || 0));
 
-            // 3. Force Developer to position #1 always
             let finalLeaderboard = [];
             if (devUser) {
                 finalLeaderboard.push(devUser);
             } else {
-                // Default fallback entry if dev hasn't signed in yet
                 finalLeaderboard.push({ name: DEV_NAME, email: DEV_EMAIL, wins: 1, isDev: true });
             }
 
