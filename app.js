@@ -2,9 +2,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { 
     getAuth, 
     signInWithPopup, 
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider, 
     signOut, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    updateProfile 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
     getDatabase, 
@@ -91,6 +94,7 @@ const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const manageProfileModal = document.getElementById('manage-profile-modal');
 const profileModalAvatar = document.getElementById('profile-modal-avatar');
 const profileNameInput = document.getElementById('profile-name-input');
+const saveProfileBtn = document.getElementById('save-profile-btn') || document.getElementById('save-name-btn');
 const closeProfileModalBtn = document.getElementById('close-profile-modal-btn');
 
 const chatBox = document.getElementById('chat-box');
@@ -180,7 +184,20 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// --- AUTHENTICATION ---
+// --- AUTHENTICATION WITH MOBILE REDIRECT FALLBACK ---
+getRedirectResult(auth)
+    .then((result) => {
+        if (result && result.user) {
+            showToast("Successfully signed in!", "info");
+        }
+    })
+    .catch((error) => {
+        if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+            console.error("Redirect Login Error:", error);
+            showToast(`Sign In Failed: ${error.message}`, 'error');
+        }
+    });
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -214,8 +231,16 @@ onAuthStateChanged(auth, async (user) => {
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await signInWithRedirect(auth, googleProvider);
+            } else {
+                await signInWithPopup(auth, googleProvider);
+            }
         } catch (error) {
+            if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+                return;
+            }
             console.error("Firebase Auth Error:", error);
             showToast(`Sign In Failed: ${error.message}`, 'error');
         }
@@ -262,6 +287,7 @@ function generateRoomCode() {
 }
 
 function getPlayerName() {
+    if (currentUser && currentUser.displayName) return currentUser.displayName;
     return (usernameInput && usernameInput.value.trim()) || "Guest_" + Math.floor(1000 + Math.random() * 9000);
 }
 
@@ -313,9 +339,13 @@ if (joinCodeBtn) {
         isHost = false;
         playerSymbol = 'O';
 
+        // Choose starting player randomly (X or O)
+        const startingTurn = Math.random() < 0.5 ? 'X' : 'O';
+
         await update(roomRef, {
             guestName: getPlayerName(),
-            status: 'active'
+            status: 'active',
+            turn: startingTurn
         });
 
         listenToRoom(currentRoomCode);
@@ -354,10 +384,8 @@ function updateGameUI(room) {
     if (joinOverlay) joinOverlay.classList.add('hidden');
     if (gameContainer) gameContainer.classList.remove('hidden');
 
-    // Ensure chat element is visible on both PC & Mobile
     if (chatBox) {
         chatBox.classList.remove('hidden');
-        // Force display block on PC screen sizes
         if (window.innerWidth > 768) {
             chatBox.style.display = 'flex';
         }
@@ -481,9 +509,12 @@ if (rematchBtn) {
     rematchBtn.addEventListener('click', async () => {
         if (!isHost) return;
         const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        
+        const startingTurn = Math.random() < 0.5 ? 'X' : 'O';
+
         await update(roomRef, {
             board: Array(9).fill(""),
-            turn: 'X',
+            turn: startingTurn,
             status: 'active',
             winner: ""
         });
@@ -507,7 +538,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM (DESKTOP + MOBILE DUAL SUPPORT) ---
+// --- CHAT SYSTEM (DUAL SUPPORT) ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -646,7 +677,7 @@ if (closeLeaderboardBtn) {
     });
 }
 
-// --- PROFILE MODAL ---
+// --- PROFILE & CHANGE NAME MODAL ---
 if (userProfileBar) {
     userProfileBar.addEventListener('click', () => {
         if (!currentUser) return;
@@ -654,6 +685,55 @@ if (userProfileBar) {
         if (profileNameInput) profileNameInput.value = currentUser.displayName || "";
         if (manageProfileModal) manageProfileModal.classList.remove('hidden');
     });
+}
+
+// Change Name Functionality
+async function handleNameChange() {
+    if (!currentUser) {
+        showToast("You must be logged in to change your name.", "error");
+        return;
+    }
+
+    const newName = profileNameInput ? profileNameInput.value.trim() : "";
+    if (!newName) {
+        showToast("Name cannot be empty!", "error");
+        return;
+    }
+
+    try {
+        // 1. Update Firebase Auth Profile
+        await updateProfile(currentUser, { displayName: newName });
+
+        // 2. Update Database Record
+        await update(ref(db, `users/${currentUser.uid}`), { name: newName });
+
+        // 3. Update Current Active Game Room Name (if in a room)
+        if (currentRoomCode) {
+            const roomRef = ref(db, `rooms/${currentRoomCode}`);
+            if (isHost) {
+                await update(roomRef, { hostName: newName });
+            } else {
+                await update(roomRef, { guestName: newName });
+            }
+        }
+
+        // 4. Update Header UI
+        if (userNameDisplay) {
+            const isDev = isDeveloper(currentUser);
+            userNameDisplay.innerHTML = isDev ? renderDevName(newName) : newName;
+        }
+        if (usernameInput) usernameInput.value = newName;
+
+        showToast("Name updated successfully!");
+        if (manageProfileModal) manageProfileModal.classList.add('hidden');
+    } catch (err) {
+        console.error("Error changing name:", err);
+        showToast("Failed to update name.", "error");
+    }
+}
+
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', handleNameChange);
 }
 
 if (closeProfileModalBtn) {
