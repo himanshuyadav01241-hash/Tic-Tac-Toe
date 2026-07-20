@@ -99,13 +99,16 @@
         <div class="overlay-card">
             <div class="brand-badge">🐺 TICTAC DUEL ARENA</div>
             <h2>Play TicTac Duel</h2>
-            <p class="overlay-subtitle">Enter your name or sign in to sync stats</p>
+            <p id="overlay-subtitle" class="overlay-subtitle">Enter your name or sign in to sync stats</p>
 
             <div class="form-stack">
                 <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="15" />
                 <button id="google-login-btn" class="google-btn">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google"> Link Account with Google
                 </button>
+                <div id="signed-in-badge" class="signed-in-badge hidden">
+                    ✨ Authenticated Player
+                </div>
             </div>
 
             <div class="or-divider"><span>GAME MODES</span></div>
@@ -137,15 +140,23 @@
 
     <!-- Manage Profile Modal -->
     <div id="manage-profile-modal" class="modal hidden">
-        <div class="modal-card">
+        <div class="modal-card profile-modal-card">
             <h2>⚙️ Manage Profile</h2>
             <div class="profile-modal-body">
-                <img id="profile-modal-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="profile-preview-avatar">
-                <label for="profile-name-input">Display Name:</label>
-                <input type="text" id="profile-name-input" placeholder="Enter new display name..." maxlength="15" />
-                <button id="save-profile-btn" class="overlay-btn primary">Save Changes</button>
+                <div class="avatar-container">
+                    <img id="profile-modal-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="profile-preview-avatar">
+                </div>
+                
+                <div class="field-group">
+                    <label for="profile-name-input">Display Name</label>
+                    <input type="text" id="profile-name-input" placeholder="Enter display name..." maxlength="15" />
+                </div>
+
+                <div class="modal-actions">
+                    <button id="save-profile-btn" class="overlay-btn primary">Save Changes</button>
+                    <button id="close-profile-modal-btn" class="overlay-btn accent">Close</button>
+                </div>
             </div>
-            <button id="close-profile-modal-btn" class="overlay-btn accent">Close</button>
         </div>
     </div>
 
