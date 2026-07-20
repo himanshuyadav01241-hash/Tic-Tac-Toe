@@ -1,13 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getDatabase, ref, set, get, onValue, update, push, remove 
+    getDatabase, ref, set, get, onValue, update, push 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { 
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // --- FIREBASE CONFIGURATION ---
-// Replace with your Firebase config values
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -74,110 +73,117 @@ const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const musicToggleBtn = document.getElementById('music-toggle-btn');
 const bgMusic = document.getElementById('bg-music');
 
-// --- GAME STATE VARIABLES ---
+// --- STATE VARIABLES ---
 let currentUser = null;
 let currentRoomCode = null;
-let playerRole = null; // 'p1' (Host) or 'p2' (Guest)
+let playerRole = null;
 let isMyTurn = false;
 let gameBoard = Array(9).fill("");
 let isMusicPlaying = false;
 
 const WINNING_COMBOS = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-    [0, 4, 8], [2, 4, 6]             // Diagonals
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
 ];
 
 // --- AUTHENTICATION ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
-        usernameInput.value = user.displayName || 'Player';
-        userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
-        userNameDisplay.textContent = user.displayName || 'Player';
+        if (usernameInput) usernameInput.value = user.displayName || 'Player';
+        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
+        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
         
-        userProfileBar.classList.remove('hidden');
-        googleLoginBtn.classList.add('signed-in');
-        googleLoginBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
+        if (userProfileBar) userProfileBar.classList.remove('hidden');
+        if (googleLoginBtn) {
+            googleLoginBtn.classList.add('signed-in');
+            googleLoginBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
+        }
 
-        // Sync stats with Database
         const userRef = ref(db, `users/${user.uid}`);
         const snap = await get(userRef);
         if (!snap.exists()) {
             await set(userRef, { name: user.displayName, wins: 0 });
-            userStatsDisplay.textContent = "Wins: 0";
+            if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
         } else {
-            userStatsDisplay.textContent = `Wins: ${snap.val().wins || 0}`;
+            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snap.val().wins || 0}`;
         }
     } else {
         currentUser = null;
-        userProfileBar.classList.add('hidden');
-        googleLoginBtn.classList.remove('signed-in');
-        googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google"> Link Account with Google`;
+        if (userProfileBar) userProfileBar.classList.add('hidden');
+        if (googleLoginBtn) {
+            googleLoginBtn.classList.remove('signed-in');
+            googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google"> Link Account with Google`;
+        }
     }
 });
 
-googleLoginBtn.addEventListener('click', () => {
-    if (!currentUser) signInWithPopup(auth, googleProvider).catch(console.error);
-});
+if (googleLoginBtn) {
+    googleLoginBtn.addEventListener('click', () => {
+        if (!currentUser) signInWithPopup(auth, googleProvider).catch(console.error);
+    });
+}
 
-logoutBtn.addEventListener('click', () => signOut(auth));
+if (logoutBtn) logoutBtn.addEventListener('click', () => signOut(auth));
 
-// --- ROOM CREATION & JOINING ---
+// --- ROOM LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-createRoomBtn.addEventListener('click', async () => {
-    const playerName = usernameInput.value.trim() || 'Host';
-    currentRoomCode = generateRoomCode();
-    playerRole = 'p1';
+if (createRoomBtn) {
+    createRoomBtn.addEventListener('click', async () => {
+        const playerName = usernameInput ? (usernameInput.value.trim() || 'Host') : 'Host';
+        currentRoomCode = generateRoomCode();
+        playerRole = 'p1';
 
-    const roomRef = ref(db, `rooms/${currentRoomCode}`);
-    await set(roomRef, {
-        p1: { name: playerName, score: 0 },
-        p2: { name: 'Waiting...', score: 0 },
-        board: Array(9).fill(""),
-        turn: 'p1',
-        status: 'waiting'
+        const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        await set(roomRef, {
+            p1: { name: playerName, score: 0 },
+            p2: { name: 'Waiting...', score: 0 },
+            board: Array(9).fill(""),
+            turn: 'p1',
+            status: 'waiting'
+        });
+
+        if (lobbyInteractiveSection) lobbyInteractiveSection.classList.add('hidden');
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
+
+        listenToRoomUpdates(currentRoomCode);
     });
+}
 
-    lobbyInteractiveSection.classList.add('hidden');
-    roomWaitBox.classList.remove('hidden');
-    roomCodeDisplay.textContent = currentRoomCode;
+if (joinCodeBtn) {
+    joinCodeBtn.addEventListener('click', async () => {
+        const code = roomCodeInput ? roomCodeInput.value.trim().toUpperCase() : '';
+        const playerName = usernameInput ? (usernameInput.value.trim() || 'Guest') : 'Guest';
 
-    listenToRoomUpdates(currentRoomCode);
-});
+        if (!code) return alert("Please enter a room code!");
 
-joinCodeBtn.addEventListener('click', async () => {
-    const code = roomCodeInput.value.trim().toUpperCase();
-    const playerName = usernameInput.value.trim() || 'Guest';
+        const roomRef = ref(db, `rooms/${code}`);
+        const snapshot = await get(roomRef);
 
-    if (!code) return alert("Please enter a room code!");
+        if (!snapshot.exists()) return alert("Room code not found!");
 
-    const roomRef = ref(db, `rooms/${code}`);
-    const snapshot = await get(roomRef);
+        const data = snapshot.val();
+        if (data.status !== 'waiting' && data.p2.name !== 'Waiting...') {
+            return alert("Room is full!");
+        }
 
-    if (!snapshot.exists()) {
-        return alert("Room code not found!");
-    }
+        currentRoomCode = code;
+        playerRole = 'p2';
 
-    const data = snapshot.val();
-    if (data.status !== 'waiting' && data.p2.name !== 'Waiting...') {
-        return alert("Room is already full!");
-    }
+        await update(ref(db, `rooms/${code}/p2`), { name: playerName });
+        await update(ref(db, `rooms/${code}`), { status: 'playing' });
 
-    currentRoomCode = code;
-    playerRole = 'p2';
+        if (joinOverlay) joinOverlay.classList.add('hidden');
+        listenToRoomUpdates(code);
+    });
+}
 
-    await update(ref(db, `rooms/${code}/p2`), { name: playerName });
-    await update(ref(db, `rooms/${code}`), { status: 'playing' });
-
-    joinOverlay.classList.add('hidden');
-    listenToRoomUpdates(code);
-});
-
-// --- GAME LOGIC & SYNC ---
+// --- GAME UPDATES ---
 function listenToRoomUpdates(code) {
     const roomRef = ref(db, `rooms/${code}`);
 
@@ -185,52 +191,49 @@ function listenToRoomUpdates(code) {
         const data = snapshot.val();
         if (!data) return;
 
-        // UI Updates
-        p1Name.textContent = data.p1.name;
-        p1Score.textContent = data.p1.score;
-        p2Name.textContent = data.p2.name;
-        p2Score.textContent = data.p2.score;
+        if (p1Name) p1Name.textContent = data.p1.name;
+        if (p1Score) p1Score.textContent = data.p1.score;
+        if (p2Name) p2Name.textContent = data.p2.name;
+        if (p2Score) p2Score.textContent = data.p2.score;
 
         gameBoard = data.board || Array(9).fill("");
         renderBoard();
 
         if (data.status === 'waiting') {
-            statusText.textContent = "Waiting for opponent to join...";
-            boardElement.classList.add('disabled');
+            if (statusText) statusText.textContent = "Waiting for opponent...";
+            if (boardElement) boardElement.classList.add('disabled');
         } else if (data.status === 'playing') {
-            joinOverlay.classList.add('hidden');
-            activeRoomBadge.classList.remove('hidden');
-            gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
-            chatBox.classList.remove('hidden');
-            leaveRoomBtn.classList.remove('hidden');
+            if (joinOverlay) joinOverlay.classList.add('hidden');
+            if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
+            if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
+            if (chatBox) chatBox.classList.remove('hidden');
+            if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
 
             isMyTurn = (data.turn === playerRole);
 
             if (isMyTurn) {
-                statusText.textContent = "Your Turn!";
-                boardElement.classList.remove('disabled');
+                if (statusText) statusText.textContent = "Your Turn!";
+                if (boardElement) boardElement.classList.remove('disabled');
             } else {
-                statusText.textContent = `${data[data.turn].name}'s Turn...`;
-                boardElement.classList.add('disabled');
+                if (statusText) statusText.textContent = `${data[data.turn].name}'s Turn...`;
+                if (boardElement) boardElement.classList.add('disabled');
             }
 
-            p1Box.classList.toggle('active-turn', data.turn === 'p1');
-            p2Box.classList.toggle('active-turn', data.turn === 'p2');
+            if (p1Box) p1Box.classList.toggle('active-turn', data.turn === 'p1');
+            if (p2Box) p2Box.classList.toggle('active-turn', data.turn === 'p2');
         } else if (data.status === 'ended') {
-            boardElement.classList.add('disabled');
-            p1Box.classList.remove('active-turn');
-            p2Box.classList.remove('active-turn');
+            if (boardElement) boardElement.classList.add('disabled');
+            if (p1Box) p1Box.classList.remove('active-turn');
+            if (p2Box) p2Box.classList.remove('active-turn');
 
             if (data.winner === 'draw') {
-                statusText.textContent = "It's a Draw! 🤝";
+                if (statusText) statusText.textContent = "It's a Draw! 🤝";
             } else {
                 const winnerName = data[data.winner].name;
-                statusText.textContent = `${winnerName} Wins! 🎉`;
+                if (statusText) statusText.textContent = `${winnerName} Wins! 🎉`;
             }
 
-            if (playerRole === 'p1') {
-                rematchBtn.classList.remove('hidden');
-            }
+            if (playerRole === 'p1' && rematchBtn) rematchBtn.classList.remove('hidden');
         }
     });
 
@@ -259,31 +262,20 @@ cells.forEach((cell, index) => {
             const currentScore = playerRole === 'p1' ? parseInt(p1Score.textContent) : parseInt(p2Score.textContent);
 
             await update(ref(db, `rooms/${currentRoomCode}/${winnerKey}`), { score: currentScore + 1 });
-            await update(roomRef, {
-                board: gameBoard,
-                status: 'ended',
-                winner: winnerKey
-            });
+            await update(roomRef, { board: gameBoard, status: 'ended', winner: winnerKey });
 
             if (currentUser) {
                 const userRef = ref(db, `users/${currentUser.uid}`);
                 const snap = await get(userRef);
                 const wins = (snap.val()?.wins || 0) + 1;
                 await update(userRef, { wins });
-                userStatsDisplay.textContent = `Wins: ${wins}`;
+                if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${wins}`;
             }
         } else if (winState.isDraw) {
-            await update(roomRef, {
-                board: gameBoard,
-                status: 'ended',
-                winner: 'draw'
-            });
+            await update(roomRef, { board: gameBoard, status: 'ended', winner: 'draw' });
         } else {
             const nextTurn = playerRole === 'p1' ? 'p2' : 'p1';
-            await update(roomRef, {
-                board: gameBoard,
-                turn: nextTurn
-            });
+            await update(roomRef, { board: gameBoard, turn: nextTurn });
         }
     });
 });
@@ -295,47 +287,41 @@ function checkWinner() {
             return { hasWinner: true, isDraw: false };
         }
     }
-    const isDraw = gameBoard.every(cell => cell !== "");
-    return { hasWinner: false, isDraw };
+    return { hasWinner: false, isDraw: gameBoard.every(cell => cell !== "") };
 }
 
-// Rematch (Host Only)
-rematchBtn.addEventListener('click', async () => {
-    rematchBtn.classList.add('hidden');
-    await update(ref(db, `rooms/${currentRoomCode}`), {
-        board: Array(9).fill(""),
-        turn: 'p1',
-        status: 'playing'
+if (rematchBtn) {
+    rematchBtn.addEventListener('click', async () => {
+        rematchBtn.classList.add('hidden');
+        await update(ref(db, `rooms/${currentRoomCode}`), {
+            board: Array(9).fill(""),
+            turn: 'p1',
+            status: 'playing'
+        });
     });
-});
+}
 
-// Leave Room
-leaveRoomBtn.addEventListener('click', () => {
-    location.reload();
-});
+if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', () => location.reload());
 
 // --- CHAT LOGIC ---
-chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const msg = chatInput.value.trim();
-    if (!msg || !currentRoomCode) return;
+if (chatForm) {
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = chatInput ? chatInput.value.trim() : '';
+        if (!msg || !currentRoomCode) return;
 
-    const senderName = usernameInput.value.trim() || 'Player';
-    const chatRef = ref(db, `chats/${currentRoomCode}`);
+        const senderName = usernameInput ? (usernameInput.value.trim() || 'Player') : 'Player';
+        await push(ref(db, `chats/${currentRoomCode}`), {
+            sender: senderName, role: playerRole, text: msg, timestamp: Date.now()
+        });
 
-    await push(chatRef, {
-        sender: senderName,
-        role: playerRole,
-        text: msg,
-        timestamp: Date.now()
+        if (chatInput) chatInput.value = '';
     });
-
-    chatInput.value = '';
-});
+}
 
 function listenToChat(code) {
-    const chatRef = ref(db, `chats/${code}`);
-    onValue(chatRef, (snapshot) => {
+    onValue(ref(db, `chats/${code}`), (snapshot) => {
+        if (!chatMessages) return;
         chatMessages.innerHTML = '';
         if (!snapshot.exists()) return;
 
@@ -344,7 +330,6 @@ function listenToChat(code) {
             const msgDiv = document.createElement('div');
             msgDiv.classList.add('chat-msg');
             if (data.role === playerRole) msgDiv.classList.add('my-msg');
-
             msgDiv.innerHTML = `<strong>${data.sender}:</strong> ${data.text}`;
             chatMessages.appendChild(msgDiv);
         });
@@ -353,34 +338,28 @@ function listenToChat(code) {
     });
 }
 
-toggleChatBtn.addEventListener('click', () => chatBox.classList.remove('hidden'));
-closeChatBtn.addEventListener('click', () => chatBox.classList.add('hidden'));
+if (toggleChatBtn && chatBox) toggleChatBtn.addEventListener('click', () => chatBox.classList.remove('hidden'));
+if (closeChatBtn && chatBox) closeChatBtn.addEventListener('click', () => chatBox.classList.add('hidden'));
 
-// --- LEADERBOARD LOGIC (#1 OWNER DISPLAY) ---
+// --- LEADERBOARD LOGIC ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = 'Loading leaderboard...';
+        if (leaderboardList) leaderboardList.innerHTML = 'Loading...';
 
-        const usersRef = ref(db, 'users');
-        const snapshot = await get(usersRef);
-
+        const snapshot = await get(ref(db, 'users'));
         let users = [];
+
         if (snapshot.exists()) {
             snapshot.forEach((child) => {
                 const val = child.val();
                 if (!currentUser || child.key !== currentUser.uid) {
-                    users.push({
-                        uid: child.key,
-                        name: val.name || 'Anonymous',
-                        wins: val.wins || 0
-                    });
+                    users.push({ uid: child.key, name: val.name || 'Anonymous', wins: val.wins || 0 });
                 }
             });
         }
 
         users.sort((a, b) => b.wins - a.wins);
-
         const ownerName = currentUser ? currentUser.displayName : "Himanshu Yadav";
 
         let html = `
@@ -397,28 +376,28 @@ if (leaderboardBtn) {
             </div>
         `).join('');
 
-        if (leaderboardList) {
-            leaderboardList.innerHTML = html;
-        }
+        if (leaderboardList) leaderboardList.innerHTML = html;
     });
 }
 
-if (closeLeaderboardBtn) {
+if (closeLeaderboardBtn && leaderboardModal) {
     closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
 }
 
-// --- MUSIC TOGGLE ---
-musicToggleBtn.addEventListener('click', () => {
-    if (isMusicPlaying) {
-        bgMusic.pause();
-        musicToggleBtn.textContent = '🎵';
-    } else {
-        bgMusic.play().catch(console.error);
-        musicToggleBtn.textContent = '🔊';
-    }
-    isMusicPlaying = !isMusicPlaying;
-});
+// --- MUSIC CONTROLLER ---
+if (musicToggleBtn && bgMusic) {
+    musicToggleBtn.addEventListener('click', () => {
+        if (isMusicPlaying) {
+            bgMusic.pause();
+            musicToggleBtn.textContent = '🎵';
+        } else {
+            bgMusic.play().catch(err => console.log("Audio play blocked by browser:", err));
+            musicToggleBtn.textContent = '🔊';
+        }
+        isMusicPlaying = !isMusicPlaying;
+    });
+}
 
-// Copy Code Buttons
-copyLinkBtn.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
-copyGameLink.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
+// Clipboard Copies
+if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
+if (copyGameLink) copyGameLink.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
