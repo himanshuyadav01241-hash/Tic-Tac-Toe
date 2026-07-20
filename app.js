@@ -107,18 +107,18 @@ if (musicToggleBtn && bgMusic) {
     });
 }
 
-// --- ADVANCED NAME & PROFILE SYNC FUNCTION ---
+// --- ADVANCED NAME & PROFILE SYNC SYSTEM ---
 async function syncUserProfile(user, newName = null) {
     if (!user) return;
 
     const targetName = newName || user.displayName || 'Player';
 
-    // 1. Update Auth Profile
+    // 1. Firebase Auth Name Update
     if (newName && user.displayName !== newName) {
         await updateProfile(user, { displayName: targetName });
     }
 
-    // 2. Update/Preserve Database record with Email
+    // 2. Realtime Database Synchronization
     const userRef = ref(db, `users/${user.uid}`);
     await update(userRef, { 
         name: targetName,
@@ -126,7 +126,7 @@ async function syncUserProfile(user, newName = null) {
         isDeveloper: (user.email === MASTER_DEVELOPER_EMAIL)
     });
 
-    // 3. UI Updates
+    // 3. Dynamic UI Updates
     if (userNameDisplay) userNameDisplay.textContent = targetName;
     if (usernameInput) usernameInput.value = targetName;
     if (googleBtn) {
@@ -134,14 +134,14 @@ async function syncUserProfile(user, newName = null) {
         googleBtn.classList.add('signed-in');
     }
 
-    // 4. Active Room Updates
+    // 4. Live Match Sync
     if (currentRoomId && playerSymbol) {
         const roomPlayerRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
         await update(roomPlayerRef, { name: targetName });
     }
 }
 
-// --- AUTHENTICATION & PROFILE MANAGEMENT ---
+// --- AUTHENTICATION LISTENER ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -174,14 +174,19 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- CHANGE NAME ACTION ---
+// --- ENHANCED PROFILE EDIT BUTTON ---
 if (editProfileBtn) {
     editProfileBtn.addEventListener('click', async () => {
         const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
-        const newName = prompt("Enter your new display name:", currentName);
+        const newName = prompt("✏️ Edit Profile Name:\nEnter your new display name below:", currentName);
 
-        if (!newName || !newName.trim()) return;
+        if (newName === null) return; // User canceled
         const trimmedName = newName.trim();
+
+        if (!trimmedName) {
+            alert("Name cannot be empty!");
+            return;
+        }
 
         try {
             if (currentUser) {
@@ -193,7 +198,7 @@ if (editProfileBtn) {
                     await update(roomPlayerRef, { name: trimmedName });
                 }
             }
-            alert("Display name updated everywhere!");
+            alert("🎉 Profile name updated successfully everywhere!");
         } catch (err) {
             alert("Failed to update profile: " + err.message);
         }
@@ -413,7 +418,6 @@ cells.forEach((cell) => {
                     const winSnap = await get(userWinRef);
                     const currentWins = winSnap.exists() ? (winSnap.val().wins || 0) : 0;
                     
-                    // Safely update wins without destroying email or developer flags
                     await update(userWinRef, {
                         name: winnerObj.name,
                         wins: currentWins + 1,
@@ -515,7 +519,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC (MASTER EMAIL ALWAYS AT #1) ---
+// --- LEADERBOARD LOGIC (PROPER DUPLICATE FILTERING & MASTER EMAIL ALWAYS AT #1) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -541,23 +545,33 @@ if (leaderboardBtn) {
             });
         });
 
-        // Match Developer entry by email
+        // 1. Locate Master Developer account by Email
         let developerUser = allUsers.find(u => u.email === MASTER_DEVELOPER_EMAIL);
         
         let devName = 'Himanshu Yadav';
         let devWins = 0;
 
-        if (developerUser) {
+        if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
+            devName = currentUser.displayName || (developerUser ? developerUser.name : 'Himanshu Yadav');
+        } else if (developerUser) {
             devName = developerUser.name;
-            devWins = developerUser.wins;
-        } else if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
-            devName = currentUser.displayName || 'Himanshu Yadav';
         }
 
-        // Exclude master developer from remaining rankings
-        let otherUsers = allUsers.filter(u => u.email !== MASTER_DEVELOPER_EMAIL);
+        if (developerUser) {
+            devWins = developerUser.wins;
+        }
+
+        // 2. Filter out Developer AND any duplicate names matching your developer profile
+        let otherUsers = allUsers.filter(u => {
+            const isMasterEmail = u.email === MASTER_DEVELOPER_EMAIL;
+            const isDuplicateDevName = u.name.toLowerCase().includes('himanshu');
+            return !isMasterEmail && !isDuplicateDevName;
+        });
+
+        // 3. Sort remaining players by wins descending
         otherUsers.sort((a, b) => b.wins - a.wins);
 
+        // 4. Render #1 Developer Spot
         let htmlContent = `
             <div class="lb-row developer-account">
                 <span class="lb-name">#1 ${devName} [Developer]</span>
@@ -565,6 +579,7 @@ if (leaderboardBtn) {
             </div>
         `;
 
+        // 5. Render remaining top players from #2 onwards
         otherUsers.slice(0, 9).forEach((u, i) => {
             const rank = i + 2;
             const rowClass = u.isGuest ? 'guest-account' : '';
