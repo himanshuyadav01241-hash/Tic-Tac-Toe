@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sakura Duel — Tic Tac Toe</title>
+    <title>TicTac Duel — Tic Tac Toe</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="background-overlay"></div>
-    <div class="petal-container" id="petal-container"></div>
     <audio id="bg-music" src="music.mp3" loop></audio>
 
     <!-- Top Navigation Header -->
@@ -32,19 +31,19 @@
     <!-- Main Game Workspace -->
     <main class="game-container">
         <header class="game-header">
-            <h1>Sakura Duel</h1>
-            <p id="status-text">Entering the garden...</p>
+            <h1><span class="wolf-icon">🐺</span> TicTac Duel</h1>
+            <p id="status-text">Entering the arena...</p>
         </header>
 
         <section class="scoreboard">
             <div class="player-box active-turn" id="p1-box">
-                <span class="avatar">🌸</span>
+                <span class="avatar">⚡</span>
                 <span class="player-name" id="p1-name">Host</span>
                 <div class="score" id="p1-score">0</div>
             </div>
             <div class="vs-divider">VS</div>
             <div class="player-box" id="p2-box">
-                <span class="avatar">🦊</span>
+                <span class="avatar">🐺</span>
                 <span class="player-name" id="p2-name">Guest</span>
                 <div class="score" id="p2-score">0</div>
             </div>
@@ -80,7 +79,7 @@
         </div>
 
         <div class="game-action-buttons">
-            <button id="rematch-btn" class="action-btn hidden">🌸 Request Rematch</button>
+            <button id="rematch-btn" class="action-btn hidden">⚔️ Request Rematch</button>
             <button id="leave-room-btn" class="action-btn secondary-btn hidden">🚪 Lobby</button>
         </div>
     </main>
@@ -88,8 +87,8 @@
     <!-- Room Portal & Authentication Overlay -->
     <div class="overlay" id="join-overlay">
         <div class="overlay-card">
-            <div class="brand-badge">🌸 SAKURA ARENA</div>
-            <h2 id="overlay-title">Play Sakura Duel</h2>
+            <div class="brand-badge">🐺 TICTAC DUEL ARENA</div>
+            <h2 id="overlay-title">Play TicTac Duel</h2>
             <p id="overlay-subtitle" class="overlay-subtitle">Enter your name or sign in to sync stats</p>
 
             <!-- Room Code Generator Header -->
@@ -101,15 +100,15 @@
 
             <!-- Input Form & Actions -->
             <div id="lobby-interactive-section">
-                <div class="input-group">
+                <div class="form-stack">
                     <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="12" autocomplete="off">
-                </div>
 
-                <!-- Google Sign-In Below Name Input -->
-                <button id="google-login-btn" class="google-btn">
-                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-                    <span>Link Account with Google</span>
-                </button>
+                    <!-- Google Sign-In -->
+                    <button id="google-login-btn" class="google-btn">
+                        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+                        <span>Link Account with Google</span>
+                    </button>
+                </div>
 
                 <div class="or-divider"><span>GAME MODES</span></div>
 
