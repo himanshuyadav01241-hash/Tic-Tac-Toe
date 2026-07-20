@@ -5,7 +5,7 @@
     --primary-blue: #2563eb;
     --primary-blue-hover: #1d4ed8;
     --accent-red: #ef4444;
-    --glass-bg: rgba(30, 41, 59, 0.85);
+    --glass-bg: rgba(15, 23, 42, 0.65); /* Made translucent for background visibility */
     --glass-border: rgba(255, 255, 255, 0.12);
     --text-color: #f8fafc; 
     --text-muted: #94a3b8;
@@ -40,7 +40,7 @@ body {
     width: 100vw; 
     height: 100vh;
     background: 
-        radial-gradient(circle at 50% 20%, rgba(11, 15, 25, 0.75), rgba(11, 15, 25, 0.95)),
+        radial-gradient(circle at 50% 20%, rgba(11, 15, 25, 0.65), rgba(11, 15, 25, 0.85)),
         url('bg.png') no-repeat center center / cover;
     z-index: 1;
     pointer-events: none;
@@ -73,6 +73,7 @@ body {
     background: var(--glass-bg); 
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(12px); 
+    -webkit-backdrop-filter: blur(12px);
     padding: 6px 14px; 
     border-radius: 30px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
@@ -140,6 +141,7 @@ body {
     background: var(--glass-bg); 
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(12px); 
+    -webkit-backdrop-filter: blur(12px);
     width: 40px; 
     height: 40px;
     border-radius: 50%; 
@@ -179,12 +181,14 @@ body {
     max-width: 820px; 
     z-index: 5; 
     margin-top: 50px;
+    background: transparent !important;
 }
 
 .game-main-content {
     background: var(--glass-bg); 
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
     padding: 24px 20px; 
     border-radius: 24px; 
     flex: 1; 
@@ -228,7 +232,7 @@ body {
 
 .player-box {
     flex: 1; 
-    background: rgba(15, 23, 42, 0.6); 
+    background: rgba(15, 23, 42, 0.5); 
     border: 1px solid var(--glass-border);
     padding: 10px; 
     border-radius: 16px; 
@@ -239,7 +243,7 @@ body {
 }
 
 .player-box.active-turn { 
-    background: rgba(37, 99, 235, 0.15); 
+    background: rgba(37, 99, 235, 0.2); 
     border-color: var(--primary-blue); 
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); 
 }
@@ -310,7 +314,7 @@ body {
 }
 
 .cell {
-    background: rgba(15, 23, 42, 0.7); 
+    background: rgba(15, 23, 42, 0.5); 
     border: 1px solid var(--glass-border);
     border-radius: 16px; 
     display: flex; 
@@ -321,11 +325,12 @@ body {
     user-select: none; 
     font-weight: 800; 
     color: #60a5fa;
+    backdrop-filter: blur(8px);
     transition: all 0.15s ease;
 }
 
 .cell:hover { 
-    background: rgba(30, 41, 59, 0.9); 
+    background: rgba(30, 41, 59, 0.8); 
     border-color: rgba(255, 255, 255, 0.25); 
 }
 
@@ -335,7 +340,8 @@ body {
 .chat-sidebar {
     background: var(--glass-bg); 
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-radius: 24px; 
     padding: 18px; 
     width: 320px;
@@ -381,7 +387,7 @@ body {
 }
 
 .chat-msg {
-    background: rgba(15, 23, 42, 0.6); 
+    background: rgba(15, 23, 42, 0.5); 
     border: 1px solid var(--glass-border); 
     padding: 8px 12px;
     border-radius: 12px; 
@@ -416,7 +422,7 @@ body {
     padding: 10px 12px; 
     font-size: 0.85rem; 
     outline: none; 
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(15, 23, 42, 0.5);
     color: #ffffff;
 }
 
@@ -448,8 +454,9 @@ body {
     left: 0; 
     width: 100vw; 
     height: 100vh;
-    background: rgba(11, 15, 25, 0.85);
+    background: rgba(11, 15, 25, 0.65);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -457,8 +464,10 @@ body {
 }
 
 .overlay-card {
-    background: rgba(30, 41, 59, 0.85); 
+    background: rgba(30, 41, 59, 0.65); 
     border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 28px 24px; 
     border-radius: 24px; 
     text-align: center;
@@ -510,7 +519,7 @@ body {
     padding: 12px 14px; 
     border-radius: 12px; 
     border: 1px solid var(--glass-border);
-    background: rgba(15, 23, 42, 0.6); 
+    background: rgba(15, 23, 42, 0.5); 
     font-size: 0.9rem; 
     outline: none; 
     color: #ffffff; 
@@ -518,7 +527,7 @@ body {
 }
 
 .form-stack input:read-only {
-    background: rgba(15, 23, 42, 0.85); 
+    background: rgba(15, 23, 42, 0.75); 
     cursor: not-allowed; 
     opacity: 0.85;
 }
@@ -649,8 +658,9 @@ body {
     left: 0; 
     width: 100vw; 
     height: 100vh; 
-    background: rgba(11, 15, 25, 0.8); 
-    backdrop-filter: blur(8px);
+    background: rgba(11, 15, 25, 0.65); 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -658,8 +668,10 @@ body {
 }
 
 .modal-card { 
-    background: #1e293b; 
+    background: rgba(30, 41, 59, 0.7); 
     border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 24px; 
     border-radius: 20px; 
     width: 88%; 
@@ -683,7 +695,7 @@ body {
     justify-content: space-between; 
     align-items: center;
     padding: 8px 12px; 
-    background: rgba(15, 23, 42, 0.6); 
+    background: rgba(15, 23, 42, 0.5); 
     border-radius: 10px; 
     border: 1px solid var(--glass-border); 
     font-weight: 600; 
@@ -736,7 +748,7 @@ body {
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--glass-border);
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(15, 23, 42, 0.5);
     color: #ffffff;
     font-size: 0.9rem;
     outline: none;
@@ -748,22 +760,30 @@ body {
 }
 
 /* ==========================================================================
-   DEVELOPER BLUR / UNBLUR FEATURE STYLES
+   DEVELOPER BLUR / UNBLUR FEATURE STYLES (TOTAL BLUR FIX)
    ========================================================================== */
 
-/* Fully blurs user name for normal players */
+/* Completely hides and blurs user name for normal players */
 .globally-blurred {
-    filter: blur(8px);
-    user-select: none;
-    pointer-events: none;
+    filter: blur(8px) !important;       /* Heavy blur completely obscures characters */
+    opacity: 0.3 !important;             /* Low opacity prevents text reading */
+    user-select: none !important;        /* Prevents text highlighting */
+    pointer-events: none !important;     /* Disables interactions */
     display: inline-block;
     transition: filter 0.2s ease, opacity 0.2s ease;
 }
 
-/* Semi-transparent view for Devs so names remain readable */
+/* Disables hover peeking completely for normal users */
+.globally-blurred:hover {
+    filter: blur(8px) !important;
+    opacity: 0.3 !important;
+}
+
+/* Semi-transparent view reserved ONLY for Developers */
 .globally-blurred.admin-view {
     filter: blur(1.5px) !important;
-    opacity: 0.85;
+    opacity: 0.85 !important;
+    pointer-events: auto !important;
 }
 
 /* Badge shown to Developer indicating a blurred user */
@@ -811,7 +831,7 @@ body {
         gap: 8px;
         width: 100%; 
         padding: 12px; 
-        background: rgba(30, 41, 59, 0.85); 
+        background: rgba(30, 41, 59, 0.65); 
         border: 1px solid var(--glass-border);
         border-radius: 16px; 
         font-weight: 700; 
