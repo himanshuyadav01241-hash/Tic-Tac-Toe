@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, update, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
@@ -8,73 +9,37 @@ const firebaseConfig = {
   projectId: "tictactoe-e747b",
   storageBucket: "tictactoe-e747b.firebasestorage.app",
   messagingSenderId: "864419563280",
-  appId: "1:864419563280:web:ed84b02a67e0d8e29cc795",
-  measurementId: "G-R8M0VCC2WC"
+  appId: "1:864419563280:web:ed84b02a67e0d8e29cc795"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
-// Game States
+// App States
 const AVATARS = { host: '🌸', guest: '🦊' };
 let myRole = null;       
 let currentTurn = 'host'; 
 let boardState = Array(9).fill(null);
 let targetRoom = null;
-let roomListener = null;
-
-// Audio System (Synthesized Web Audio API)
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let musicMuted = false;
-let sfxMuted = false;
-
-function playSound(type) {
-    if (sfxMuted) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    if (type === 'move') {
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
-    } else if (type === 'win') {
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
-    }
-}
-
-// Background Music Synthesizer Loop
-let musicInterval = null;
-function startBackgroundMusic() {
-    const notes = [261.63, 293.66, 329.63, 392.00, 440.00];
-    let noteIdx = 0;
-    
-    musicInterval = setInterval(() => {
-        if (musicMuted) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(notes[noteIdx % notes.length], audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-        
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 1.2);
-        noteIdx++;
-    }, 1500);
-}
+let currentUser = null;
 
 // Elements
+const bgMusic = document.getElementById('bg-music');
+const musicToggleBtn = document.getElementById('music-toggle-btn');
+const sfxToggleBtn = document.getElementById('sfx-toggle-btn');
+let musicPlaying = false;
+let sfxMuted = false;
+
+// Profile Elements
+const googleLoginBtn = document.getElementById('google-login-btn');
+const userProfileBar = document.getElementById('user-profile-bar');
+const userAvatar = document.getElementById('user-avatar');
+const userNameDisplay = document.getElementById('user-name-display');
+const logoutBtn = document.getElementById('logout-btn');
+
+// UI Controls
 const statusText = document.getElementById('status-text');
 const boardEl = document.getElementById('board');
 const cells = document.querySelectorAll('.cell');
@@ -98,18 +63,41 @@ const roomWaitBox = document.getElementById('room-wait-box');
 const roomCodeDisplay = document.getElementById('room-code-display');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 
-const musicToggleBtn = document.getElementById('music-toggle-btn');
-const sfxToggleBtn = document.getElementById('sfx-toggle-btn');
+// Authentication Listeners
+googleLoginBtn.onclick = () => {
+    signInWithPopup(auth, googleProvider).catch(error => console.error("Login failed", error));
+};
 
-function getMyName() {
-    return usernameInput.value.trim() || (myRole === 'host' ? 'Host' : 'Guest');
-}
+logoutBtn.onclick = () => signOut(auth);
 
-// Audio Controls Toggles
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUser = user;
+        usernameInput.value = user.displayName.split(' ')[0];
+        usernameInput.disabled = true;
+        userAvatar.src = user.photoURL;
+        userNameDisplay.innerText = user.displayName.split(' ')[0];
+        userProfileBar.classList.remove('hidden');
+        googleLoginBtn.classList.add('hidden');
+    } else {
+        currentUser = null;
+        usernameInput.value = '';
+        usernameInput.disabled = false;
+        userProfileBar.classList.add('hidden');
+        googleLoginBtn.classList.remove('hidden');
+    }
+});
+
+// Audio Functions
 musicToggleBtn.onclick = () => {
-    musicMuted = !musicMuted;
-    musicToggleBtn.classList.toggle('muted', musicMuted);
-    if (!musicInterval && !musicMuted) startBackgroundMusic();
+    if (musicPlaying) {
+        bgMusic.pause();
+        musicToggleBtn.classList.add('muted');
+    } else {
+        bgMusic.play().catch(() => {});
+        musicToggleBtn.classList.remove('muted');
+    }
+    musicPlaying = !musicPlaying;
 };
 
 sfxToggleBtn.onclick = () => {
@@ -117,18 +105,13 @@ sfxToggleBtn.onclick = () => {
     sfxToggleBtn.classList.toggle('muted', sfxMuted);
 };
 
-// Check for direct link join room parameter
-const urlParams = new URLSearchParams(window.location.search);
-const directRoom = urlParams.get('room');
-if (directRoom) {
-    roomCodeInput.value = directRoom;
+function getMyName() {
+    return usernameInput.value.trim() || (myRole === 'host' ? 'Host' : 'Guest');
 }
 
-// Create Room Handler
+// Room Management
 createRoomBtn.onclick = () => {
-    audioCtx.resume();
-    if (!musicInterval) startBackgroundMusic();
-
+    if (!musicPlaying) musicToggleBtn.click();
     myRole = 'host';
     targetRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -143,18 +126,14 @@ createRoomBtn.onclick = () => {
 
     lobbyActions.classList.add('hidden');
     roomWaitBox.classList.remove('hidden');
-    roomCodeDisplay.innerText = `Room Code: ${targetRoom}`;
-    
+    roomCodeDisplay.innerText = `Code: ${targetRoom}`;
     setupGameSync();
 };
 
-// Join Room Handler
 joinCodeBtn.onclick = () => {
     const code = roomCodeInput.value.trim().toUpperCase();
     if (!code) return;
-
-    audioCtx.resume();
-    if (!musicInterval) startBackgroundMusic();
+    if (!musicPlaying) musicToggleBtn.click();
 
     myRole = 'guest';
     targetRoom = code;
@@ -162,12 +141,9 @@ joinCodeBtn.onclick = () => {
     update(ref(db, `games/${targetRoom}`), {
         guestName: getMyName(),
         guestConnected: true
-    }).then(() => {
-        setupGameSync();
-    });
+    }).then(() => setupGameSync());
 };
 
-// Copy Room Link Handler
 copyLinkBtn.onclick = () => {
     const link = `${window.location.origin}${window.location.pathname}?room=${targetRoom}`;
     navigator.clipboard.writeText(link);
@@ -175,12 +151,11 @@ copyLinkBtn.onclick = () => {
     setTimeout(() => copyLinkBtn.innerText = "📋 Copy Invite Link", 2000);
 };
 
-// Main Real-Time State Listener
 function setupGameSync() {
     const roomRef = ref(db, `games/${targetRoom}`);
     onDisconnect(ref(db, `games/${targetRoom}/${myRole}Connected`)).set(false);
 
-    roomListener = onValue(roomRef, (snapshot) => {
+    onValue(roomRef, (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
@@ -194,7 +169,7 @@ function setupGameSync() {
         } else {
             joinOverlay.classList.remove('fade-out');
             overlayTitle.innerText = "Waiting for Partner...";
-            overlaySubtitle.innerText = `Share code ${targetRoom} with your friend!`;
+            overlaySubtitle.innerText = `Room Code: ${targetRoom}`;
             boardEl.classList.add('disabled');
         }
 
@@ -211,10 +186,9 @@ function setupGameSync() {
         document.getElementById('p1-score').innerText = data.scores?.host || 0;
         document.getElementById('p2-score').innerText = data.scores?.guest || 0;
 
-        // Check Rematch Consensus
+        // Rematch Sync
         const rematch = data.rematchRequest || {};
         if (rematch.host && rematch.guest) {
-            // Both accepted - reset the board
             update(ref(db, `games/${targetRoom}`), {
                 boardState: Array(9).fill(""),
                 currentTurn: 'host',
@@ -223,7 +197,7 @@ function setupGameSync() {
             rematchBtn.innerText = "🌸 Request Rematch";
             rematchBtn.disabled = false;
         } else if (rematch[myRole]) {
-            rematchBtn.innerText = "⏳ Waiting for Partner...";
+            rematchBtn.innerText = "⏳ Waiting...";
             rematchBtn.disabled = true;
         } else if (rematch[myRole === 'host' ? 'guest' : 'host']) {
             rematchBtn.innerText = "✨ Accept Rematch!";
@@ -232,13 +206,12 @@ function setupGameSync() {
 
         if (checkWin()) {
             highlightWin();
-            playSound('win');
             const winnerName = currentTurn === 'host' ? p1NameEl.innerText : p2NameEl.innerText;
-            statusText.innerText = `${winnerName} Wins the Round! 🌟`;
+            statusText.innerText = `${winnerName} Wins! 🌟`;
             boardEl.classList.add('disabled');
             rematchBtn.classList.remove('hidden');
         } else if (boardState.every(cell => cell !== null)) {
-            statusText.innerText = "A Peaceful Draw! 🥂";
+            statusText.innerText = "Peaceful Draw! 🥂";
             rematchBtn.classList.remove('hidden');
         } else {
             rematchBtn.classList.add('hidden');
@@ -248,13 +221,11 @@ function setupGameSync() {
     });
 }
 
-// User Move Action
 cells.forEach(cell => {
     cell.addEventListener('click', (e) => {
         const index = parseInt(e.target.dataset.index);
         if (boardState[index] || currentTurn !== myRole) return;
 
-        playSound('move');
         const updates = {};
         updates[`games/${targetRoom}/boardState/${index}`] = myRole;
 
@@ -273,7 +244,7 @@ cells.forEach(cell => {
 
 function updateTurnIndicators() {
     const currentName = currentTurn === 'host' ? p1NameEl.innerText : p2NameEl.innerText;
-    statusText.innerText = currentTurn === myRole ? "Your Turn ✨" : `${currentName} is choosing a tile...`;
+    statusText.innerText = currentTurn === myRole ? "Your Turn ✨" : `${currentName}'s turn...`;
 
     if (currentTurn === 'host') {
         p1Box.classList.add('active-turn');
@@ -308,14 +279,12 @@ function highlightWin() {
     });
 }
 
-// Rematch Request System
 rematchBtn.addEventListener('click', () => {
     const updates = {};
     updates[`games/${targetRoom}/rematchRequest/${myRole}`] = true;
     update(ref(db), updates);
 });
 
-// Leave Room Handler
 leaveRoomBtn.addEventListener('click', () => {
     window.location.href = window.location.pathname;
 });
