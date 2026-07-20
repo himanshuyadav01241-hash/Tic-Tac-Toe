@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
@@ -17,29 +17,23 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// App States
 const AVATARS = { host: '🌸', guest: '🦊' };
 let myRole = null;       
 let currentTurn = 'host'; 
 let boardState = Array(9).fill(null);
 let targetRoom = null;
-let currentUser = null;
 
-// Elements
 const bgMusic = document.getElementById('bg-music');
 const musicToggleBtn = document.getElementById('music-toggle-btn');
 const sfxToggleBtn = document.getElementById('sfx-toggle-btn');
 let musicPlaying = false;
-let sfxMuted = false;
 
-// Profile Elements
 const googleLoginBtn = document.getElementById('google-login-btn');
 const userProfileBar = document.getElementById('user-profile-bar');
 const userAvatar = document.getElementById('user-avatar');
 const userNameDisplay = document.getElementById('user-name-display');
 const logoutBtn = document.getElementById('logout-btn');
 
-// UI Controls
 const statusText = document.getElementById('status-text');
 const boardEl = document.getElementById('board');
 const cells = document.querySelectorAll('.cell');
@@ -63,24 +57,26 @@ const roomWaitBox = document.getElementById('room-wait-box');
 const roomCodeDisplay = document.getElementById('room-code-display');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 
-// Authentication Listeners
+// Google Login Handler
 googleLoginBtn.onclick = () => {
-    signInWithPopup(auth, googleProvider).catch(error => console.error("Login failed", error));
+    signInWithPopup(auth, googleProvider).catch(() => {
+        // Fallback for mobile popup blocking
+        signInWithRedirect(auth, googleProvider);
+    });
 };
 
 logoutBtn.onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        currentUser = user;
-        usernameInput.value = user.displayName.split(' ')[0];
+        const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Player';
+        usernameInput.value = firstName;
         usernameInput.disabled = true;
-        userAvatar.src = user.photoURL;
-        userNameDisplay.innerText = user.displayName.split(' ')[0];
+        userAvatar.src = user.photoURL || '';
+        userNameDisplay.innerText = firstName;
         userProfileBar.classList.remove('hidden');
         googleLoginBtn.classList.add('hidden');
     } else {
-        currentUser = null;
         usernameInput.value = '';
         usernameInput.disabled = false;
         userProfileBar.classList.add('hidden');
@@ -88,7 +84,6 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Audio Functions
 musicToggleBtn.onclick = () => {
     if (musicPlaying) {
         bgMusic.pause();
@@ -100,16 +95,10 @@ musicToggleBtn.onclick = () => {
     musicPlaying = !musicPlaying;
 };
 
-sfxToggleBtn.onclick = () => {
-    sfxMuted = !sfxMuted;
-    sfxToggleBtn.classList.toggle('muted', sfxMuted);
-};
-
 function getMyName() {
     return usernameInput.value.trim() || (myRole === 'host' ? 'Host' : 'Guest');
 }
 
-// Room Management
 createRoomBtn.onclick = () => {
     if (!musicPlaying) musicToggleBtn.click();
     myRole = 'host';
@@ -126,7 +115,7 @@ createRoomBtn.onclick = () => {
 
     lobbyActions.classList.add('hidden');
     roomWaitBox.classList.remove('hidden');
-    roomCodeDisplay.innerText = `Code: ${targetRoom}`;
+    roomCodeDisplay.innerText = `Room Code: ${targetRoom}`;
     setupGameSync();
 };
 
@@ -186,7 +175,6 @@ function setupGameSync() {
         document.getElementById('p1-score').innerText = data.scores?.host || 0;
         document.getElementById('p2-score').innerText = data.scores?.guest || 0;
 
-        // Rematch Sync
         const rematch = data.rematchRequest || {};
         if (rematch.host && rematch.guest) {
             update(ref(db, `games/${targetRoom}`), {
