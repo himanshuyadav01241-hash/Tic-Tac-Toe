@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TicTac Duel Arena</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -141,7 +141,7 @@
         </div>
     </div>
 
-    <!-- PROFILE MANAGEMENT MODAL (UPDATED & FIXED) -->
+    <!-- PROFILE MANAGEMENT MODAL -->
     <div id="manage-profile-modal" class="modal hidden">
         <div class="modal-card profile-modal-card">
             <h2>Account Details</h2>
@@ -150,13 +150,11 @@
             </div>
             <div class="field-group">
                 <label for="profile-name-input">Display Name</label>
-                <!-- Removed 'readonly' so users can edit their name -->
                 <input type="text" id="profile-name-input" placeholder="Enter new display name..." maxlength="15">
             </div>
-            <!-- Added Save Button alongside Close Button -->
-            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                <button id="save-profile-btn" class="action-btn primary" style="flex: 1;">Save Name</button>
-                <button id="close-profile-modal-btn" class="action-btn accent" style="flex: 1;">Close</button>
+            <div class="modal-actions">
+                <button id="save-profile-btn" class="action-btn primary">Save Name</button>
+                <button id="close-profile-modal-btn" class="action-btn accent">Close</button>
             </div>
         </div>
     </div>
