@@ -33,7 +33,7 @@ let isMyTurn = false;
 let gameActive = false;
 let isMusicPlaying = false;
 
-// DOM Elements
+// --- DOM ELEMENTS ---
 const overlay = document.getElementById('join-overlay');
 const gameContainer = document.querySelector('.game-container');
 const usernameInput = document.getElementById('username-input');
@@ -96,6 +96,13 @@ if (overlay && !overlay.classList.contains('hidden') && gameContainer) {
     gameContainer.classList.add('hidden');
 }
 
+// --- HELPER FUNCTION: SANITIZE STRINGS ---
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
+
 // --- BACKGROUND MUSIC TOGGLE ---
 if (musicToggleBtn && bgMusic) {
     bgMusic.volume = 0.3;
@@ -119,9 +126,14 @@ function updateCornerProfileUI(user) {
     if (user) {
         const displayName = user.displayName || 'Player';
         
-        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
+        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
         if (userNameDisplay) userNameDisplay.textContent = displayName;
         if (profileBar) profileBar.classList.remove('hidden');
+
+        if (usernameInput) {
+            usernameInput.value = displayName;
+            usernameInput.readOnly = true;
+        }
 
         if (googleBtn) {
             googleBtn.innerHTML = `✓ Signed in as ${displayName.split(' ')[0]}`;
@@ -129,6 +141,12 @@ function updateCornerProfileUI(user) {
         }
     } else {
         if (profileBar) profileBar.classList.add('hidden');
+        
+        if (usernameInput) {
+            usernameInput.value = '';
+            usernameInput.readOnly = false;
+        }
+
         if (googleBtn) {
             googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
             googleBtn.classList.remove('signed-in');
@@ -147,7 +165,7 @@ async function syncUserProfile(user, newName = null) {
         await updateProfile(user, { displayName: targetName });
     }
 
-    // 2. Realtime Database Synchronization (Critical for Leaderboard)
+    // 2. Realtime Database Synchronization
     const userRef = ref(db, `users/${user.uid}`);
     await update(userRef, { 
         name: targetName,
@@ -177,7 +195,6 @@ onAuthStateChanged(auth, async (user) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
             if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
-            // Preserve updated name if DB differs from auth display name
             if (data.name && data.name !== user.displayName) {
                 await updateProfile(user, { displayName: data.name });
             }
@@ -198,17 +215,14 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- MANAGE PROFILE IN TOP CORNER ---
+// --- MANAGE PROFILE MODAL ---
 if (profileBar) {
     profileBar.addEventListener('click', (e) => {
-        // Prevent click if clicking logout button inside bar
         if (e.target === logoutBtn || e.target.closest('#logout-btn')) return;
-
         if (!currentUser) return;
 
         if (profileModalAvatar) profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/80';
         if (profileNameInput) profileNameInput.value = currentUser.displayName || '';
-        
         if (manageProfileModal) manageProfileModal.classList.remove('hidden');
     });
 }
@@ -235,7 +249,7 @@ if (saveProfileBtn) {
             saveProfileBtn.textContent = "Save Changes";
 
             if (manageProfileModal) manageProfileModal.classList.add('hidden');
-            alert("Profile updated! Your new name is now synced on the leaderboard.");
+            alert("Profile updated!");
         } catch (err) {
             saveProfileBtn.textContent = "Save Changes";
             alert("Failed to update profile: " + err.message);
@@ -263,7 +277,7 @@ if (logoutBtn) {
     });
 }
 
-// --- ROOM CREATION & JOINING LOGIC ---
+// --- ROOM CREATION & JOINING ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -272,7 +286,6 @@ if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
         const name = (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || "Host";
         const roomId = generateRoomCode();
-
         const playerId = currentUser ? currentUser.uid : 'guest_' + name.replace(/\s+/g, '_');
 
         const roomRef = ref(db, `rooms/${roomId}`);
@@ -343,7 +356,7 @@ function joinRoom(roomId, symbol, closeOverlayImmediately = false) {
     listenToChat(roomId);
 }
 
-// --- GAMEPLAY & WIN LOGIC ---
+// --- GAMEPLAY LOGIC ---
 function listenToRoom(roomId) {
     const roomRef = ref(db, `rooms/${roomId}`);
     onValue(roomRef, (snapshot) => {
@@ -552,7 +565,7 @@ function listenToChat(roomId) {
 
             const msgEl = document.createElement('div');
             msgEl.className = `chat-msg ${isMe ? 'my-msg' : ''}`;
-            msgEl.innerHTML = `<strong>${data.sender}:</strong> ${data.text}`;
+            msgEl.innerHTML = `<strong>${escapeHTML(data.sender)}:</strong> ${escapeHTML(data.text)}`;
             chatMessages.appendChild(msgEl);
         });
 
@@ -586,31 +599,25 @@ if (leaderboardBtn) {
             });
         });
 
-        // 1. Fetch Developer profile directly from Realtime Database
         let developerUser = allUsers.find(u => u.email === MASTER_DEVELOPER_EMAIL);
-
-        let devName = developerUser ? developerUser.name : (currentUser?.displayName || 'Himanshu Yadav');
+        let devName = developerUser ? developerUser.name : 'Himanshu Yadav';
         let devWins = developerUser ? developerUser.wins : 0;
 
-        // 2. Filter out master account and legacy duplicate entries
         let otherUsers = allUsers.filter(u => {
             const isMasterEmail = u.email === MASTER_DEVELOPER_EMAIL;
             const isDuplicateDevName = u.name.toLowerCase().includes('himanshu') && u.email !== MASTER_DEVELOPER_EMAIL;
             return !isMasterEmail && !isDuplicateDevName;
         });
 
-        // 3. Sort other users by wins
         otherUsers.sort((a, b) => b.wins - a.wins);
 
-        // 4. Render Master Spot
         let htmlContent = `
             <div class="lb-row developer-account">
-                <span class="lb-name">#1 ${devName} [Developer]</span>
+                <span class="lb-name">#1 ${escapeHTML(devName)} [Developer]</span>
                 <span class="lb-score">🏆 ${devWins} Wins</span>
             </div>
         `;
 
-        // 5. Render Rank 2 onwards
         otherUsers.slice(0, 9).forEach((u, i) => {
             const rank = i + 2;
             const rowClass = u.isGuest ? 'guest-account' : '';
@@ -618,7 +625,7 @@ if (leaderboardBtn) {
 
             htmlContent += `
                 <div class="lb-row ${rowClass}">
-                    <span class="lb-name">#${rank} ${u.name}${label}</span>
+                    <span class="lb-name">#${rank} ${escapeHTML(u.name)}${label}</span>
                     <span class="lb-score">🏆 ${u.wins} Wins</span>
                 </div>
             `;
