@@ -46,12 +46,19 @@ const roomWaitBox = document.getElementById('room-wait-box');
 const roomCodeDisplay = document.getElementById('room-code-display');
 const copyLinkBtn = document.getElementById('copy-link-btn');
 
+// Top Corner Profile Elements
 const profileBar = document.getElementById('user-profile-bar');
 const userAvatar = document.getElementById('user-avatar');
 const userNameDisplay = document.getElementById('user-name-display');
 const userStatsDisplay = document.getElementById('user-stats-display');
-const editProfileBtn = document.getElementById('edit-profile-btn');
 const logoutBtn = document.getElementById('logout-btn');
+
+// Manage Profile Modal Elements
+const manageProfileModal = document.getElementById('manage-profile-modal');
+const profileModalAvatar = document.getElementById('profile-modal-avatar');
+const profileNameInput = document.getElementById('profile-name-input');
+const saveProfileBtn = document.getElementById('save-profile-btn');
+const closeProfileModalBtn = document.getElementById('close-profile-modal-btn');
 
 const statusText = document.getElementById('status-text');
 const boardEl = document.getElementById('board');
@@ -107,7 +114,29 @@ if (musicToggleBtn && bgMusic) {
     });
 }
 
-// --- ADVANCED NAME & PROFILE SYNC SYSTEM ---
+// --- UI REFRESH FUNCTION FOR TOP CORNER PROFILE ---
+function updateCornerProfileUI(user) {
+    if (user) {
+        const displayName = user.displayName || 'Player';
+        
+        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
+        if (userNameDisplay) userNameDisplay.textContent = displayName;
+        if (profileBar) profileBar.classList.remove('hidden');
+
+        if (googleBtn) {
+            googleBtn.innerHTML = `✓ Signed in as ${displayName.split(' ')[0]}`;
+            googleBtn.classList.add('signed-in');
+        }
+    } else {
+        if (profileBar) profileBar.classList.add('hidden');
+        if (googleBtn) {
+            googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
+            googleBtn.classList.remove('signed-in');
+        }
+    }
+}
+
+// --- ADVANCED PROFILE SYNC SYSTEM ---
 async function syncUserProfile(user, newName = null) {
     if (!user) return;
 
@@ -118,7 +147,7 @@ async function syncUserProfile(user, newName = null) {
         await updateProfile(user, { displayName: targetName });
     }
 
-    // 2. Realtime Database Synchronization
+    // 2. Realtime Database Synchronization (Critical for Leaderboard)
     const userRef = ref(db, `users/${user.uid}`);
     await update(userRef, { 
         name: targetName,
@@ -126,15 +155,10 @@ async function syncUserProfile(user, newName = null) {
         isDeveloper: (user.email === MASTER_DEVELOPER_EMAIL)
     });
 
-    // 3. Dynamic UI Updates
-    if (userNameDisplay) userNameDisplay.textContent = targetName;
-    if (usernameInput) usernameInput.value = targetName;
-    if (googleBtn) {
-        googleBtn.innerHTML = `✓ Signed in as ${targetName.split(' ')[0]}`;
-        googleBtn.classList.add('signed-in');
-    }
+    // 3. UI Corner Sync
+    updateCornerProfileUI(user);
 
-    // 4. Live Match Sync
+    // 4. Active Match Sync
     if (currentRoomId && playerSymbol) {
         const roomPlayerRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
         await update(roomPlayerRef, { name: targetName });
@@ -145,15 +169,18 @@ async function syncUserProfile(user, newName = null) {
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
-        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
-        if (profileBar) profileBar.classList.remove('hidden');
-
-        await syncUserProfile(user);
+        updateCornerProfileUI(user);
 
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
+
         if (snapshot.exists()) {
-            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
+            const data = snapshot.val();
+            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
+            // Preserve updated name if DB differs from auth display name
+            if (data.name && data.name !== user.displayName) {
+                await updateProfile(user, { displayName: data.name });
+            }
         } else {
             await set(userRef, { 
                 name: user.displayName || 'Player', 
@@ -163,43 +190,54 @@ onAuthStateChanged(auth, async (user) => {
             });
             if (userStatsDisplay) userStatsDisplay.textContent = 'Wins: 0';
         }
+
+        await syncUserProfile(user);
     } else {
         currentUser = null;
-        if (profileBar) profileBar.classList.add('hidden');
-        if (usernameInput) usernameInput.value = '';
-        if (googleBtn) {
-            googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
-            googleBtn.classList.remove('signed-in');
-        }
+        updateCornerProfileUI(null);
     }
 });
 
-// --- ENHANCED PROFILE EDIT BUTTON ---
-if (editProfileBtn) {
-    editProfileBtn.addEventListener('click', async () => {
-        const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
-        const newName = prompt("✏️ Edit Profile Name:\nEnter your new display name below:", currentName);
+// --- MANAGE PROFILE IN TOP CORNER ---
+if (profileBar) {
+    profileBar.addEventListener('click', (e) => {
+        // Prevent click if clicking logout button inside bar
+        if (e.target === logoutBtn || e.target.closest('#logout-btn')) return;
 
-        if (newName === null) return; // User canceled
-        const trimmedName = newName.trim();
+        if (!currentUser) return;
 
+        if (profileModalAvatar) profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/80';
+        if (profileNameInput) profileNameInput.value = currentUser.displayName || '';
+        
+        if (manageProfileModal) manageProfileModal.classList.remove('hidden');
+    });
+}
+
+if (closeProfileModalBtn) {
+    closeProfileModalBtn.addEventListener('click', () => {
+        if (manageProfileModal) manageProfileModal.classList.add('hidden');
+    });
+}
+
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', async () => {
+        if (!currentUser || !profileNameInput) return;
+
+        const trimmedName = profileNameInput.value.trim();
         if (!trimmedName) {
             alert("Name cannot be empty!");
             return;
         }
 
         try {
-            if (currentUser) {
-                await syncUserProfile(currentUser, trimmedName);
-            } else {
-                if (usernameInput) usernameInput.value = trimmedName;
-                if (currentRoomId && playerSymbol) {
-                    const roomPlayerRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
-                    await update(roomPlayerRef, { name: trimmedName });
-                }
-            }
-            alert("🎉 Profile name updated successfully everywhere!");
+            saveProfileBtn.textContent = "Saving...";
+            await syncUserProfile(currentUser, trimmedName);
+            saveProfileBtn.textContent = "Save Changes";
+
+            if (manageProfileModal) manageProfileModal.classList.add('hidden');
+            alert("Profile updated! Your new name is now synced on the leaderboard.");
         } catch (err) {
+            saveProfileBtn.textContent = "Save Changes";
             alert("Failed to update profile: " + err.message);
         }
     });
@@ -219,7 +257,10 @@ if (googleBtn) {
 }
 
 if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => signOut(auth));
+    logoutBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        signOut(auth);
+    });
 }
 
 // --- ROOM CREATION & JOINING LOGIC ---
@@ -229,7 +270,7 @@ function generateRoomCode() {
 
 if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
-        const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Host");
+        const name = (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || "Host";
         const roomId = generateRoomCode();
 
         const playerId = currentUser ? currentUser.uid : 'guest_' + name.replace(/\s+/g, '_');
@@ -268,7 +309,7 @@ if (joinCodeBtn) {
 
         if (room.p2) return alert("Room is full!");
 
-        const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Guest");
+        const name = (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || "Guest";
         const playerId = currentUser ? currentUser.uid : 'guest_' + name.replace(/\s+/g, '_');
 
         await update(roomRef, {
@@ -486,7 +527,7 @@ if (chatForm) {
         if (!msg || !currentRoomId) return;
 
         const chatRef = ref(db, `chats/${currentRoomId}`);
-        const name = usernameInput.value.trim() || playerSymbol;
+        const name = (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || playerSymbol;
 
         await push(chatRef, {
             sender: name,
@@ -503,7 +544,7 @@ function listenToChat(roomId) {
     onValue(chatRef, (snapshot) => {
         if (!chatMessages) return;
         chatMessages.innerHTML = '';
-        const myName = usernameInput.value.trim() || playerSymbol;
+        const myName = (currentUser ? currentUser.displayName : usernameInput?.value.trim()) || playerSymbol;
 
         snapshot.forEach((child) => {
             const data = child.val();
@@ -519,11 +560,11 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC (PROPER DUPLICATE FILTERING & MASTER EMAIL ALWAYS AT #1) ---
+// --- DYNAMIC LEADERBOARD LOGIC ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = 'Loading leaderboard...';
+        if (leaderboardList) leaderboardList.innerHTML = 'Loading real-time leaderboard...';
 
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
@@ -545,33 +586,23 @@ if (leaderboardBtn) {
             });
         });
 
-        // 1. Locate Master Developer account by Email
+        // 1. Fetch Developer profile directly from Realtime Database
         let developerUser = allUsers.find(u => u.email === MASTER_DEVELOPER_EMAIL);
-        
-        let devName = 'Himanshu Yadav';
-        let devWins = 0;
 
-        if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
-            devName = currentUser.displayName || (developerUser ? developerUser.name : 'Himanshu Yadav');
-        } else if (developerUser) {
-            devName = developerUser.name;
-        }
+        let devName = developerUser ? developerUser.name : (currentUser?.displayName || 'Himanshu Yadav');
+        let devWins = developerUser ? developerUser.wins : 0;
 
-        if (developerUser) {
-            devWins = developerUser.wins;
-        }
-
-        // 2. Filter out Developer AND any duplicate names matching your developer profile
+        // 2. Filter out master account and legacy duplicate entries
         let otherUsers = allUsers.filter(u => {
             const isMasterEmail = u.email === MASTER_DEVELOPER_EMAIL;
-            const isDuplicateDevName = u.name.toLowerCase().includes('himanshu');
+            const isDuplicateDevName = u.name.toLowerCase().includes('himanshu') && u.email !== MASTER_DEVELOPER_EMAIL;
             return !isMasterEmail && !isDuplicateDevName;
         });
 
-        // 3. Sort remaining players by wins descending
+        // 3. Sort other users by wins
         otherUsers.sort((a, b) => b.wins - a.wins);
 
-        // 4. Render #1 Developer Spot
+        // 4. Render Master Spot
         let htmlContent = `
             <div class="lb-row developer-account">
                 <span class="lb-name">#1 ${devName} [Developer]</span>
@@ -579,7 +610,7 @@ if (leaderboardBtn) {
             </div>
         `;
 
-        // 5. Render remaining top players from #2 onwards
+        // 5. Render Rank 2 onwards
         otherUsers.slice(0, 9).forEach((u, i) => {
             const rank = i + 2;
             const rowClass = u.isGuest ? 'guest-account' : '';
