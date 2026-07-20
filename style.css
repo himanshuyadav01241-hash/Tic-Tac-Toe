@@ -46,7 +46,7 @@ body {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--primary-blue); }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--primary-blue); object-fit: cover; }
 .user-info { display: flex; flex-direction: column; }
 .user-name-display { font-size: 0.8rem; font-weight: 700; color: var(--text-color); }
 .user-stats-display { font-size: 0.68rem; color: var(--accent-red); font-weight: 800; }
@@ -169,10 +169,13 @@ body {
 
 .mobile-chat-toggle { display: none; }
 
-/* Overlay Popup */
+/* Overlay Popup Modal */
 .overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    display: flex; justify-content: center; align-items: center; z-index: 999;
+    display: flex; justify-content: center; align-items: center; 
+    z-index: 2000; /* Increased to completely block/hide elements underneath */
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
 }
 
 .overlay-card {
@@ -230,7 +233,7 @@ body {
 .hidden { display: none !important; }
 
 /* Leaderboard Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 3000; }
 .modal-card { background: white; padding: 24px; border-radius: 20px; width: 88%; max-width: 340px; text-align: center; }
 .leaderboard-list { margin: 16px 0; max-height: 220px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; }
 .lb-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-weight: 600; }
