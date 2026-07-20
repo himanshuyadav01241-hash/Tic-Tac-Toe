@@ -37,6 +37,7 @@ const googleBtn = document.getElementById('google-login-btn');
 const createRoomBtn = document.getElementById('create-room-btn');
 const joinCodeBtn = document.getElementById('join-code-btn');
 const roomCodeInput = document.getElementById('room-code-input');
+const lobbyInteractiveSection = document.getElementById('lobby-interactive-section');
 const roomWaitBox = document.getElementById('room-wait-box');
 const roomCodeDisplay = document.getElementById('room-code-display');
 const copyLinkBtn = document.getElementById('copy-link-btn');
@@ -97,7 +98,7 @@ if (musicToggleBtn && bgMusic) {
     });
 }
 
-// --- AUTHENTICATION ---
+// --- AUTHENTICATION & PROFILE MANAGEMENT ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -107,11 +108,11 @@ onAuthStateChanged(auth, async (user) => {
 
         if (usernameInput) {
             usernameInput.value = user.displayName || '';
-            usernameInput.readOnly = true;
+            usernameInput.readOnly = true; // Lock input for signed-in accounts
         }
 
         if (googleBtn) {
-            googleBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
+            googleBtn.innerHTML = `✓ Signed in as ${user.displayName.split(' ')[0]}`;
             googleBtn.classList.add('signed-in');
         }
 
@@ -154,14 +155,14 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => signOut(auth));
 }
 
-// --- ROOM LOGIC ---
+// --- ROOM CREATION & JOINING LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
-        const name = usernameInput.value.trim() || "Host";
+        const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Host");
         const roomId = generateRoomCode();
 
         const roomRef = ref(db, `rooms/${roomId}`);
@@ -174,7 +175,12 @@ if (createRoomBtn) {
             winner: null
         });
 
-        joinRoom(roomId, 'X');
+        // Switch lobby UI to Room Wait Box showing the generated code
+        if (lobbyInteractiveSection) lobbyInteractiveSection.classList.add('hidden');
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = roomId;
+
+        joinRoom(roomId, 'X', false); // Host stays on overlay until opponent joins
     });
 }
 
@@ -191,22 +197,23 @@ if (joinCodeBtn) {
 
         if (room.p2) return alert("Room is full!");
 
-        const name = usernameInput.value.trim() || "Guest";
+        const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Guest");
         await update(roomRef, {
             p2: { name: name, score: 0, id: currentUser ? currentUser.uid : 'guest' },
             status: 'playing'
         });
 
-        joinRoom(roomId, 'O');
+        joinRoom(roomId, 'O', true); // Immediately close overlay for joining Player 2
     });
 }
 
-function joinRoom(roomId, symbol) {
+function joinRoom(roomId, symbol, closeOverlayImmediately = false) {
     currentRoomId = roomId;
     playerSymbol = symbol;
 
-    // Immediately hide join overlay on joining or creating a room
-    if (overlay) overlay.classList.add('hidden');
+    if (closeOverlayImmediately && overlay) {
+        overlay.classList.add('hidden');
+    }
 
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${roomId}`;
@@ -225,6 +232,12 @@ function listenToRoom(roomId) {
         const room = snapshot.val();
         if (!room) return;
 
+        // Auto-close Host's wait overlay as soon as Player 2 joins
+        if (room.status === 'playing' && overlay) {
+            overlay.classList.add('hidden');
+        }
+
+        // Display Player 1 (Owner/Host) and Player 2 names & scores
         if (p1Name) p1Name.textContent = room.p1?.name || "Host";
         if (p2Name) p2Name.textContent = room.p2?.name || "Waiting...";
         if (p1Score) p1Score.textContent = room.p1?.score || 0;
@@ -252,6 +265,7 @@ function listenToRoom(roomId) {
             gameActive = false;
             if (boardEl) boardEl.classList.add('disabled');
 
+            // Show "Next Round" exclusively to Player 1 (Host/Owner)
             if (rematchBtn) {
                 rematchBtn.textContent = "Next Round 🔄";
                 if (playerSymbol === 'X') {
