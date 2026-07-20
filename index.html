@@ -8,8 +8,14 @@
 </head>
 <body>
 
-    <!-- Falling Petals Background Canvas -->
+    <!-- Floating Background Canvas -->
     <div class="petal-container" id="petal-container"></div>
+
+    <!-- Audio Player Controls Bar -->
+    <div class="audio-controls">
+        <button id="music-toggle-btn" class="icon-btn" title="Toggle Music">🎵</button>
+        <button id="sfx-toggle-btn" class="icon-btn" title="Toggle Sound Effects">🔊</button>
+    </div>
 
     <!-- Main Game Workspace Wrapper -->
     <main class="game-container">
@@ -48,26 +54,43 @@
             </div>
         </div>
 
-        <!-- System Reset Interactive Button -->
-        <button id="reset-btn" class="reset-button hidden">Next Round 🌸</button>
+        <!-- Rematch Request Controls -->
+        <div class="game-action-buttons">
+            <button id="rematch-btn" class="action-btn hidden">🌸 Request Rematch</button>
+            <button id="leave-room-btn" class="action-btn secondary-btn hidden">🚪 Lobby</button>
+        </div>
     </main>
 
-    <!-- Structural Overlay Setup Screen Module Layer -->
+    <!-- Room Selection & Joining Overlay Hub -->
     <div class="overlay" id="join-overlay">
         <div class="overlay-card">
             <h2 id="overlay-title">Sakura Duel</h2>
-            <p id="overlay-subtitle" class="overlay-subtitle">Preparing the courtyard...</p>
+            <p id="overlay-subtitle" class="overlay-subtitle">Enter your name and choose a option</p>
             
             <div class="input-group">
-                <label for="username-input">Enter Your Name</label>
+                <label for="username-input">Your Name</label>
                 <input type="text" id="username-input" placeholder="Samurai..." maxlength="12" autocomplete="off">
             </div>
 
-            <button id="overlay-btn" class="overlay-btn hidden">📋 Copy Invite Link</button>
+            <!-- Multi-Room Options Hub -->
+            <div id="lobby-actions" class="lobby-actions">
+                <button id="create-room-btn" class="overlay-btn">✨ Create New Room</button>
+                <div class="or-divider"><span>OR</span></div>
+                
+                <div class="join-room-box">
+                    <input type="text" id="room-code-input" placeholder="Enter Room Code..." autocomplete="off">
+                    <button id="join-code-btn" class="overlay-btn secondary">Join</button>
+                </div>
+            </div>
+
+            <div id="room-wait-box" class="hidden">
+                <p id="room-code-display" class="room-code-text"></p>
+                <button id="copy-link-btn" class="overlay-btn">📋 Copy Invite Link</button>
+            </div>
         </div>
     </div>
 
-    <!-- Active Real-Time JavaScript Core Engine Module Linking -->
+    <!-- Active Real-Time JavaScript Core Engine -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
