@@ -85,7 +85,6 @@ const leaderboardList = document.getElementById('leaderboard-list');
 const musicToggleBtn = document.getElementById('music-toggle-btn');
 const bgMusic = document.getElementById('bg-music');
 
-// Ensure game container is hidden when lobby is showing
 if (overlay && !overlay.classList.contains('hidden') && gameContainer) {
     gameContainer.classList.add('hidden');
 }
@@ -108,34 +107,56 @@ if (musicToggleBtn && bgMusic) {
     });
 }
 
+// --- ADVANCED NAME & PROFILE SYNC FUNCTION ---
+async function syncUserProfile(user, newName = null) {
+    if (!user) return;
+
+    const targetName = newName || user.displayName || 'Player';
+
+    // 1. Update Auth Profile
+    if (newName && user.displayName !== newName) {
+        await updateProfile(user, { displayName: targetName });
+    }
+
+    // 2. Update/Preserve Database record with Email
+    const userRef = ref(db, `users/${user.uid}`);
+    await update(userRef, { 
+        name: targetName,
+        email: user.email || '',
+        isDeveloper: (user.email === MASTER_DEVELOPER_EMAIL)
+    });
+
+    // 3. UI Updates
+    if (userNameDisplay) userNameDisplay.textContent = targetName;
+    if (usernameInput) usernameInput.value = targetName;
+    if (googleBtn) {
+        googleBtn.innerHTML = `✓ Signed in as ${targetName.split(' ')[0]}`;
+        googleBtn.classList.add('signed-in');
+    }
+
+    // 4. Active Room Updates
+    if (currentRoomId && playerSymbol) {
+        const roomPlayerRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
+        await update(roomPlayerRef, { name: targetName });
+    }
+}
+
 // --- AUTHENTICATION & PROFILE MANAGEMENT ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
-        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
         if (profileBar) profileBar.classList.remove('hidden');
 
-        if (usernameInput) {
-            usernameInput.value = user.displayName || '';
-        }
-
-        if (googleBtn) {
-            googleBtn.innerHTML = `✓ Signed in as ${(user.displayName || 'Dev').split(' ')[0]}`;
-            googleBtn.classList.add('signed-in');
-        }
+        await syncUserProfile(user);
 
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
             if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
-            // Update email in database if missing
-            if (!snapshot.val().email && user.email) {
-                await update(userRef, { email: user.email });
-            }
         } else {
             await set(userRef, { 
-                name: user.displayName, 
+                name: user.displayName || 'Player', 
                 email: user.email || '',
                 wins: 0, 
                 isDeveloper: (user.email === MASTER_DEVELOPER_EMAIL) 
@@ -145,9 +166,7 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         currentUser = null;
         if (profileBar) profileBar.classList.add('hidden');
-        if (usernameInput) {
-            usernameInput.value = '';
-        }
+        if (usernameInput) usernameInput.value = '';
         if (googleBtn) {
             googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
             googleBtn.classList.remove('signed-in');
@@ -155,7 +174,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- CHANGE NAME / MANAGE PROFILE (SYNC EVERYWHERE) ---
+// --- CHANGE NAME ACTION ---
 if (editProfileBtn) {
     editProfileBtn.addEventListener('click', async () => {
         const currentName = currentUser ? currentUser.displayName : (usernameInput ? usernameInput.value : '');
@@ -166,30 +185,15 @@ if (editProfileBtn) {
 
         try {
             if (currentUser) {
-                // 1. Update Firebase Auth User Profile
-                await updateProfile(currentUser, { displayName: trimmedName });
-                
-                // 2. Update Database Record
-                const userRef = ref(db, `users/${currentUser.uid}`);
-                await update(userRef, { 
-                    name: trimmedName,
-                    email: currentUser.email || '' 
-                });
-
-                // 3. Update Profile UI elements
-                if (userNameDisplay) userNameDisplay.textContent = trimmedName;
-                if (googleBtn) googleBtn.innerHTML = `✓ Signed in as ${trimmedName.split(' ')[0]}`;
+                await syncUserProfile(currentUser, trimmedName);
+            } else {
+                if (usernameInput) usernameInput.value = trimmedName;
+                if (currentRoomId && playerSymbol) {
+                    const roomPlayerRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
+                    await update(roomPlayerRef, { name: trimmedName });
+                }
             }
-
-            if (usernameInput) usernameInput.value = trimmedName;
-
-            // 4. Update name in active game room live
-            if (currentRoomId && playerSymbol) {
-                const roomRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}`);
-                await update(roomRef, { name: trimmedName });
-            }
-
-            alert("Display name updated everywhere successfully!");
+            alert("Display name updated everywhere!");
         } catch (err) {
             alert("Failed to update profile: " + err.message);
         }
@@ -293,7 +297,7 @@ function joinRoom(roomId, symbol, closeOverlayImmediately = false) {
     listenToChat(roomId);
 }
 
-// --- GAMEPLAY & QUIT LISTENER ---
+// --- GAMEPLAY & WIN LOGIC ---
 function listenToRoom(roomId) {
     const roomRef = ref(db, `rooms/${roomId}`);
     onValue(roomRef, (snapshot) => {
@@ -409,7 +413,8 @@ cells.forEach((cell) => {
                     const winSnap = await get(userWinRef);
                     const currentWins = winSnap.exists() ? (winSnap.val().wins || 0) : 0;
                     
-                    await set(userWinRef, {
+                    // Safely update wins without destroying email or developer flags
+                    await update(userWinRef, {
                         name: winnerObj.name,
                         wins: currentWins + 1,
                         isGuest: winnerObj.id.startsWith('guest_')
@@ -510,7 +515,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC (MAIN EMAIL PERMANENTLY PINNED AT #1) ---
+// --- LEADERBOARD LOGIC (MASTER EMAIL ALWAYS AT #1) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -536,31 +541,23 @@ if (leaderboardBtn) {
             });
         });
 
-        // 1. Find your main developer account by matching your Gmail address
+        // Match Developer entry by email
         let developerUser = allUsers.find(u => u.email === MASTER_DEVELOPER_EMAIL);
         
-        // Dynamic name resolution for developer
         let devName = 'Himanshu Yadav';
         let devWins = 0;
 
-        if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
-            devName = currentUser.displayName || (developerUser ? developerUser.name : 'Himanshu Yadav');
-        } else if (developerUser) {
+        if (developerUser) {
             devName = developerUser.name;
             devWins = developerUser.wins;
+        } else if (currentUser && currentUser.email === MASTER_DEVELOPER_EMAIL) {
+            devName = currentUser.displayName || 'Himanshu Yadav';
         }
 
-        if (developerUser) {
-            devWins = developerUser.wins;
-        }
-
-        // 2. Separate all other players from the main Developer account
+        // Exclude master developer from remaining rankings
         let otherUsers = allUsers.filter(u => u.email !== MASTER_DEVELOPER_EMAIL);
-
-        // 3. Sort remaining players descending by wins
         otherUsers.sort((a, b) => b.wins - a.wins);
 
-        // 4. Build leaderboard HTML with your email locked to #1
         let htmlContent = `
             <div class="lb-row developer-account">
                 <span class="lb-name">#1 ${devName} [Developer]</span>
@@ -568,9 +565,8 @@ if (leaderboardBtn) {
             </div>
         `;
 
-        // 5. Append all other players starting from #2
         otherUsers.slice(0, 9).forEach((u, i) => {
-            const rank = i + 2; // Rank starts at #2
+            const rank = i + 2;
             const rowClass = u.isGuest ? 'guest-account' : '';
             const label = u.isGuest ? ' (Guest)' : '';
 
