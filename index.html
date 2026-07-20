@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TicTac Duel Arena</title>
-    <!-- Linked to style.css to match your GitHub repo file -->
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- Background Layer -->
+    <!-- Background Image & Animated Overlay -->
     <div class="background-overlay"></div>
 
     <!-- Top Navigation Bar -->
@@ -30,7 +29,7 @@
         </div>
     </header>
 
-    <!-- FULL-SCREEN LOBBY OVERLAY (Active first) -->
+    <!-- FULL-SCREEN LOBBY OVERLAY -->
     <div id="join-overlay" class="overlay">
         <div class="overlay-card">
             <span class="brand-badge">🐺 TICTAC DUEL ARENA</span>
@@ -60,7 +59,6 @@
                 </div>
             </div>
 
-            <!-- Waiting Room Box (When room is created) -->
             <div id="room-wait-box" class="room-wait-box hidden">
                 <p class="wait-label">Share this code with your opponent:</p>
                 <div id="room-code-display" class="room-code-text">------</div>
@@ -69,9 +67,8 @@
         </div>
     </div>
 
-    <!-- MAIN GAME WORKSPACE (Hidden initially) -->
+    <!-- MAIN GAME WORKSPACE -->
     <main id="game-container" class="game-container hidden">
-        
         <section class="game-main-content">
             <div class="game-header">
                 <h1><span class="wolf-icon">🐺</span> TicTac Duel</h1>
@@ -131,38 +128,21 @@
                 <button type="submit" class="chat-send-btn">Send</button>
             </form>
         </aside>
-
     </main>
 
     <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal hidden">
         <div class="modal-card">
-            <h2>🏆 Leaderboard</h2>
-            <div id="leaderboard-list" class="leaderboard-list">Loading top players...</div>
+            <h2>🏆 Top Arena Players</h2>
+            <div id="leaderboard-list" class="leaderboard-list">
+                <div class="lb-row"><span>1. Himanshu</span><span>14 Wins</span></div>
+            </div>
             <button id="close-leaderboard-btn" class="action-btn primary">Close</button>
         </div>
     </div>
 
-    <!-- PROFILE MANAGEMENT MODAL -->
-    <div id="manage-profile-modal" class="modal hidden">
-        <div class="modal-card profile-modal-card">
-            <h2>Account Details</h2>
-            <div class="avatar-container">
-                <img id="profile-modal-avatar" class="profile-preview-avatar" src="https://via.placeholder.com/70" alt="Avatar">
-            </div>
-            <div class="field-group">
-                <label for="profile-name-input">Display Name</label>
-                <input type="text" id="profile-name-input" placeholder="Enter new display name..." maxlength="15">
-            </div>
-            <div class="modal-actions">
-                <button id="save-profile-btn" class="action-btn primary">Save Name</button>
-                <button id="close-profile-modal-btn" class="action-btn accent">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Background Audio -->
-    <audio id="bg-music" src="music.mp3" loop></audio>
+    <!-- AUDIO ELEMENT -->
+    <audio id="bg-music" src="music.mp3" loop preload="auto"></audio>
 
     <script type="module" src="app.js"></script>
 </body>
