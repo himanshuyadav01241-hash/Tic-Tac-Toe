@@ -146,7 +146,7 @@ function showToast(message, type = 'info') {
             top: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.75);
             color: #fff;
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 10px 20px;
@@ -154,8 +154,9 @@ function showToast(message, type = 'info') {
             font-size: 0.9rem;
             font-weight: 600;
             z-index: 10000;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             pointer-events: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
@@ -381,8 +382,16 @@ function updateGameUI(room) {
     }
 
     if (roomWaitBox) roomWaitBox.classList.add('hidden');
-    if (joinOverlay) joinOverlay.classList.add('hidden');
-    if (gameContainer) gameContainer.classList.remove('hidden');
+    
+    // Smoothly reveal background when game room starts
+    if (joinOverlay) {
+        joinOverlay.classList.add('hidden');
+        joinOverlay.style.background = 'transparent';
+    }
+    if (gameContainer) {
+        gameContainer.classList.remove('hidden');
+        gameContainer.style.background = 'transparent';
+    }
 
     if (chatBox) {
         chatBox.classList.remove('hidden');
@@ -669,14 +678,18 @@ async function renderLeaderboard() {
                     ? renderDevName(rawName) 
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
-                const blurredClass = isBlurredForEveryone ? 'globally-blurred' : '';
+                // Uses inline styles for a mild, readable blur effect
+                const blurStyle = isBlurredForEveryone 
+                    ? "filter: blur(2.5px); opacity: 0.85; transition: filter 0.3s ease;" 
+                    : "";
+
                 const adminViewClass = (isBlurredForEveryone && currentIsDev) ? 'admin-view' : '';
                 const adminClass = currentIsDev ? 'admin-clickable' : '';
 
                 row.innerHTML = `
                     <span class="lb-name">
                         #${idx + 1} 
-                        <span class="lb-name-text ${blurredClass} ${adminViewClass} ${adminClass}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle global blur' : ''}">
+                        <span class="lb-name-text ${adminViewClass} ${adminClass}" style="${blurStyle}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle blur visibility' : ''}">
                             ${nameMarkup}
                         </span>
                     </span>
@@ -692,7 +705,6 @@ async function renderLeaderboard() {
                 nameSpans.forEach(span => {
                     span.addEventListener('click', async (e) => {
                         e.stopPropagation();
-                        // Obtain UID directly from target or closest container
                         const targetElement = e.target.closest('.admin-clickable');
                         const targetUid = targetElement ? targetElement.getAttribute('data-uid') : null;
                         
@@ -704,8 +716,8 @@ async function renderLeaderboard() {
 
                         await set(userBlurRef, newBlurStatus);
                         
-                        showToast(newBlurStatus ? "Name blurred for everyone!" : "Name unblurred for everyone!");
-                        renderLeaderboard(); // Re-render to update UI instantly
+                        showToast(newBlurStatus ? "Name blur applied (slightly visible)" : "Name unblurred");
+                        renderLeaderboard();
                     });
                 });
             }
