@@ -30,11 +30,11 @@ body {
     z-index: 1;
 }
 
-/* Header Navigation */
+/* FIX: Raised z-index to 3000 so Music & Leaderboard stay visible above the overlay */
 .app-top-bar {
     position: fixed; top: 15px; left: 15px; right: 15px;
     display: flex; justify-content: space-between; align-items: center;
-    z-index: 1000; pointer-events: none;
+    z-index: 3000; pointer-events: none;
 }
 
 .profile-bar, .header-right-controls { pointer-events: auto; }
@@ -176,8 +176,7 @@ body {
     left: 0; 
     width: 100vw; 
     height: 100vh;
-    background: rgba(15, 23, 42, 0.85); /* Solid dark backdrop */
-    backdrop-filter: blur(10px);
+    background: rgba(15, 23, 42, 0.8); /* Clean dark overlay */
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -250,7 +249,7 @@ body {
 .hidden { display: none !important; }
 
 /* Leaderboard Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2500; }
+.modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 3500; }
 .modal-card { background: white; padding: 24px; border-radius: 20px; width: 88%; max-width: 340px; text-align: center; }
 .leaderboard-list { margin: 16px 0; max-height: 220px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; }
 .lb-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-weight: 600; }
