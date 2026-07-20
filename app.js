@@ -15,10 +15,7 @@ import {
     update, 
     push, 
     remove, 
-    serverTimestamp, 
-    query, 
-    orderByChild, 
-    limitToLast 
+    serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 // --- YOUR FIREBASE CONFIGURATION ---
@@ -39,8 +36,15 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 const googleProvider = new GoogleAuthProvider();
 
-// --- DEVELOPER RECOGNITION (Add your email/UID/Name here) ---
-const DEV_NAMES = ["Himanshu Yadav"]; // Add any developer names or emails
+// --- PERMANENT DEVELOPER IDENTIFIERS ---
+const DEV_EMAIL = "himanshu.yadav01241@gmail.com";
+const DEV_NAME = "Himanshu Yadav";
+
+// Helper function to check if a user object/auth user is the developer
+function isDeveloper(userObj) {
+    if (!userObj) return false;
+    return (userObj.email === DEV_EMAIL || userObj.name === DEV_NAME || userObj.displayName === DEV_NAME);
+}
 
 // --- DOM ELEMENTS ---
 const joinOverlay = document.getElementById('join-overlay');
@@ -104,6 +108,29 @@ let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
 
+// --- EXCLUSIVE DEV DESIGN BUILDER ---
+function renderDevName(nameText) {
+    return `<span style="
+        background: linear-gradient(90deg, #ff0055, #ff5000);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+        text-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    ">${nameText}</span>
+    <span style="
+        color: #ffffff;
+        font-size: 0.65rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #ef4444, #991b1b);
+        padding: 2px 7px;
+        border-radius: 6px;
+        border: 1px solid #f87171;
+        margin-left: 6px;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+        letter-spacing: 0.5px;
+    ">DEV</span>`;
+}
+
 // --- AUTHENTICATION ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -117,8 +144,8 @@ onAuthStateChanged(auth, async (user) => {
 
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
         if (userNameDisplay) {
-            const isDev = DEV_NAMES.includes(user.displayName);
-            userNameDisplay.innerHTML = `${user.displayName || "Player"} ${isDev ? '<span style="color:#ef4444; font-size:0.65rem; font-weight:800; background:#fee2e2; padding:2px 6px; border-radius:6px; border:1px solid #fecaca; margin-left:4px;">DEV</span>' : ''}`;
+            const isDev = isDeveloper(user);
+            userNameDisplay.innerHTML = isDev ? renderDevName(user.displayName || "Himanshu Yadav") : (user.displayName || "Player");
         }
         if (userProfileBar) userProfileBar.classList.remove('hidden');
 
@@ -138,8 +165,7 @@ onAuthStateChanged(auth, async (user) => {
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            console.log("Logged in successfully:", result.user);
+            await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Firebase Auth Error:", error);
             alert(`Sign In Failed: ${error.message}`);
@@ -158,17 +184,23 @@ async function syncUserData(user) {
     try {
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
+        const isDev = isDeveloper(user);
+
         if (!snapshot.exists()) {
             await set(userRef, {
-                name: user.displayName || "Player",
+                name: user.displayName || "Himanshu Yadav",
                 email: user.email,
                 wins: 0,
                 avatar: user.photoURL || 'https://via.placeholder.com/32',
-                isDev: DEV_NAMES.includes(user.displayName)
+                isDev: isDev
             });
             if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
         } else {
             const data = snapshot.val();
+            // Always ensure developer status stays true in DB
+            if (isDev && !data.isDev) {
+                await update(userRef, { isDev: true, email: user.email });
+            }
             if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
         }
     } catch (err) {
@@ -450,14 +482,13 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD WITH DEVELOPER BADGES ---
+// --- LEADERBOARD (DEV PINNED TO #1 WITH EXCLUSIVE DESIGN) ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
         if (leaderboardList) leaderboardList.innerHTML = "Loading records...";
 
         try {
-            // Fetch all users to display complete leaderboard
             const snapshot = await get(ref(db, 'users'));
 
             if (!snapshot.exists()) {
@@ -470,28 +501,42 @@ if (leaderboardBtn) {
                 users.push(child.val());
             });
 
-            // Sort by wins descending
-            users.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+            // 1. Separate Developer account (by email, name, or flag)
+            let devUser = users.find(u => isDeveloper(u) || u.isDev);
+            let regularUsers = users.filter(u => !(isDeveloper(u) || u.isDev));
+
+            // 2. Sort regular users by wins
+            regularUsers.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+
+            // 3. Force Developer to position #1 always
+            let finalLeaderboard = [];
+            if (devUser) {
+                finalLeaderboard.push(devUser);
+            } else {
+                // Default fallback entry if dev hasn't signed in yet
+                finalLeaderboard.push({ name: DEV_NAME, email: DEV_EMAIL, wins: 1, isDev: true });
+            }
+
+            finalLeaderboard = finalLeaderboard.concat(regularUsers);
 
             if (leaderboardList) {
                 leaderboardList.innerHTML = "";
-                users.forEach((u, idx) => {
+                finalLeaderboard.forEach((u, idx) => {
                     const row = document.createElement('div');
                     row.className = 'lb-row';
                     
-                    // Check if user is Developer
-                    const isDev = DEV_NAMES.includes(u.name) || u.isDev;
-                    const devBadge = isDev ? `<span style="color:#ef4444; font-size:0.65rem; font-weight:800; background:#fee2e2; padding:2px 6px; border-radius:6px; border:1px solid #fecaca; margin-left:6px;">DEV</span>` : '';
+                    const isDev = isDeveloper(u) || u.isDev;
+                    const nameMarkup = isDev ? renderDevName(u.name || DEV_NAME) : (u.name || 'Player');
 
                     row.innerHTML = `
-                        <span class="lb-name">#${idx + 1} ${u.name || 'Player'} ${devBadge}</span>
-                        <span class="lb-score">${u.wins || 0} Wins</span>
+                        <span class="lb-name">#${idx + 1} ${nameMarkup}</span>
+                        <span class="lb-score" style="${isDev ? 'color: #ef4444; font-weight: 800;' : ''}">${u.wins || 0} Wins</span>
                     `;
                     leaderboardList.appendChild(row);
                 });
             }
         } catch (err) {
-            console.error("Leaderboard Fetch Error:", err);
+            console.error("Leaderboard Error:", err);
             if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>Failed to load data.</div>";
         }
     });
