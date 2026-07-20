@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getDatabase, ref, set, get, onValue, update, push, serverTimestamp 
+    getDatabase, ref, set, get, onValue, update, push, serverTimestamp, onDisconnect 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { 
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
@@ -109,12 +109,12 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
-        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
+        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Developer';
         if (profileBar) profileBar.classList.remove('hidden');
 
         if (usernameInput) {
             usernameInput.value = user.displayName || '';
-            usernameInput.readOnly = true; // Lock input for signed-in accounts
+            usernameInput.readOnly = true; // Lock input for signed-in account
         }
 
         if (googleBtn) {
@@ -127,7 +127,7 @@ onAuthStateChanged(auth, async (user) => {
         if (snapshot.exists()) {
             if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
         } else {
-            await set(userRef, { name: user.displayName, wins: 0 });
+            await set(userRef, { name: user.displayName, wins: 0, isDeveloper: true });
             if (userStatsDisplay) userStatsDisplay.textContent = 'Wins: 0';
         }
     } else {
@@ -171,9 +171,11 @@ if (createRoomBtn) {
         const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Host");
         const roomId = generateRoomCode();
 
+        const playerId = currentUser ? currentUser.uid : 'guest_' + name.replace(/\s+/g, '_');
+
         const roomRef = ref(db, `rooms/${roomId}`);
         await set(roomRef, {
-            p1: { name: name, score: 0, id: currentUser ? currentUser.uid : 'guest' },
+            p1: { name: name, score: 0, id: playerId, connected: true },
             p2: null,
             board: Array(9).fill(''),
             turn: 'X',
@@ -181,12 +183,15 @@ if (createRoomBtn) {
             winner: null
         });
 
-        // Switch lobby UI to Room Wait Box showing the generated code
+        // Set disconnect trigger so remaining user is notified if player quits
+        const p1StatusRef = ref(db, `rooms/${roomId}/p1/connected`);
+        onDisconnect(p1StatusRef).set(false);
+
         if (lobbyInteractiveSection) lobbyInteractiveSection.classList.add('hidden');
         if (roomWaitBox) roomWaitBox.classList.remove('hidden');
         if (roomCodeDisplay) roomCodeDisplay.textContent = roomId;
 
-        joinRoom(roomId, 'X', false); // Host stays on overlay until opponent joins
+        joinRoom(roomId, 'X', false);
     });
 }
 
@@ -204,12 +209,18 @@ if (joinCodeBtn) {
         if (room.p2) return alert("Room is full!");
 
         const name = usernameInput.value.trim() || (currentUser ? currentUser.displayName : "Guest");
+        const playerId = currentUser ? currentUser.uid : 'guest_' + name.replace(/\s+/g, '_');
+
         await update(roomRef, {
-            p2: { name: name, score: 0, id: currentUser ? currentUser.uid : 'guest' },
+            p2: { name: name, score: 0, id: playerId, connected: true },
             status: 'playing'
         });
 
-        joinRoom(roomId, 'O', true); // Immediately close overlay for joining Player 2
+        // Set disconnect trigger for Player 2
+        const p2StatusRef = ref(db, `rooms/${roomId}/p2/connected`);
+        onDisconnect(p2StatusRef).set(false);
+
+        joinRoom(roomId, 'O', true);
     });
 }
 
@@ -232,20 +243,28 @@ function joinRoom(roomId, symbol, closeOverlayImmediately = false) {
     listenToChat(roomId);
 }
 
-// --- GAMEPLAY LISTENER ---
+// --- GAMEPLAY & QUIT LISTENER ---
 function listenToRoom(roomId) {
     const roomRef = ref(db, `rooms/${roomId}`);
     onValue(roomRef, (snapshot) => {
         const room = snapshot.val();
         if (!room) return;
 
-        // Auto-close Host's wait overlay as soon as Player 2 joins
+        // Auto-close Host's wait overlay when opponent joins
         if (room.status === 'playing') {
             if (overlay) overlay.classList.add('hidden');
             if (gameContainer) gameContainer.classList.remove('hidden');
         }
 
-        // Display Player 1 (Owner/Host) and Player 2 names & scores
+        // DISCONNECT / QUIT DETECTION: If player left, declare remaining player winner
+        if (room.status === 'playing') {
+            if (room.p1 && room.p1.connected === false) {
+                update(roomRef, { status: 'abandoned', winner: 'O' });
+            } else if (room.p2 && room.p2.connected === false) {
+                update(roomRef, { status: 'abandoned', winner: 'X' });
+            }
+        }
+
         if (p1Name) p1Name.textContent = room.p1?.name || "Host";
         if (p2Name) p2Name.textContent = room.p2?.name || "Waiting...";
         if (p1Score) p1Score.textContent = room.p1?.score || 0;
@@ -269,11 +288,21 @@ function listenToRoom(roomId) {
                 else boardEl.classList.add('disabled');
             }
             if (rematchBtn) rematchBtn.classList.add('hidden');
+        } else if (room.status === 'abandoned') {
+            // Player quit: keep screen open and announce default victory
+            gameActive = false;
+            if (boardEl) boardEl.classList.add('disabled');
+            const winnerSymbol = room.winner;
+            if (winnerSymbol === playerSymbol) {
+                if (statusText) statusText.textContent = "Opponent disconnected. You win by default! 🎉";
+            } else {
+                if (statusText) statusText.textContent = "You left the game.";
+            }
+            if (rematchBtn) rematchBtn.classList.add('hidden');
         } else if (room.status === 'ended') {
             gameActive = false;
             if (boardEl) boardEl.classList.add('disabled');
 
-            // Show "Next Round" exclusively to Player 1 (Host/Owner)
             if (rematchBtn) {
                 rematchBtn.textContent = "Next Round 🔄";
                 if (playerSymbol === 'X') {
@@ -328,10 +357,17 @@ cells.forEach((cell) => {
                 updates[isP1 ? 'p1/score' : 'p2/score'] = (isP1 ? room.p1.score : room.p2.score) + 1;
 
                 const winnerObj = isP1 ? room.p1 : room.p2;
-                if (winnerObj.id && winnerObj.id !== 'guest') {
-                    const userWinRef = ref(db, `users/${winnerObj.id}/wins`);
+                if (winnerObj.id) {
+                    // Update win count for both registered and guest users
+                    const userWinRef = ref(db, `users/${winnerObj.id}`);
                     const winSnap = await get(userWinRef);
-                    await set(userWinRef, (winSnap.val() || 0) + 1);
+                    const currentWins = winSnap.exists() ? (winSnap.val().wins || 0) : 0;
+                    
+                    await set(userWinRef, {
+                        name: winnerObj.name,
+                        wins: currentWins + 1,
+                        isGuest: winnerObj.id.startsWith('guest_')
+                    });
                 }
             }
             await update(roomRef, updates);
@@ -370,7 +406,13 @@ if (rematchBtn) {
 }
 
 if (leaveRoomBtn) {
-    leaveRoomBtn.addEventListener('click', () => location.reload());
+    leaveRoomBtn.addEventListener('click', async () => {
+        if (currentRoomId) {
+            const playerStatusRef = ref(db, `rooms/${currentRoomId}/${playerSymbol === 'X' ? 'p1' : 'p2'}/connected`);
+            await set(playerStatusRef, false);
+        }
+        location.reload();
+    });
 }
 
 // --- CHAT SYSTEM ---
@@ -422,7 +464,7 @@ function listenToChat(roomId) {
     });
 }
 
-// --- LEADERBOARD LOGIC ---
+// --- LEADERBOARD LOGIC WITH GUESTS & RED DEVELOPER HIGHLIGHT ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
         if (leaderboardModal) leaderboardModal.classList.remove('hidden');
@@ -442,7 +484,8 @@ if (leaderboardBtn) {
             users.push({
                 uid: child.key,
                 name: val.name || 'Anonymous',
-                wins: val.wins || 0
+                wins: val.wins || 0,
+                isGuest: val.isGuest || child.key.startsWith('guest_')
             });
         });
 
@@ -451,9 +494,15 @@ if (leaderboardBtn) {
         if (leaderboardList) {
             leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => {
                 const isMe = currentUser && currentUser.uid === u.uid;
+                // Highlight signed-in developer in RED bold text
+                const isDeveloper = isMe || u.uid === (currentUser ? currentUser.uid : null);
+                
+                const rowClass = isDeveloper ? 'developer-account' : (u.isGuest ? 'guest-account' : '');
+                const label = isDeveloper ? ' [Developer]' : (u.isGuest ? ' (Guest)' : '');
+
                 return `
-                    <div class="lb-row ${isMe ? 'my-account' : ''}">
-                        <span>#${i + 1} ${u.name} ${isMe ? '(You)' : ''}</span>
+                    <div class="lb-row ${rowClass}">
+                        <span class="lb-name">#${i + 1} ${u.name}${label}</span>
                         <span class="lb-score">🏆 ${u.wins} Wins</span>
                     </div>
                 `;
