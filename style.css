@@ -1,8 +1,8 @@
 :root {
     --primary-blue: #2563eb;
     --primary-blue-hover: #1d4ed8;
-    --glass-bg: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.6);
     --red-glow: #ef4444;
 }
 
@@ -23,46 +23,36 @@ body {
     padding: 20px;
 }
 
+/* MAIN WRAPPER - Side-by-side Layout */
 .container {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
+    justify-content: center;
     align-items: flex-start;
     max-width: 900px;
     width: 100%;
 }
 
-/* --- MAIN CARD --- */
-.game-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 24px;
-    flex: 1;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-/* TOP CONTROLS */
+/* FIXED NAVIGATION BUTTONS */
 .top-nav {
-    position: absolute;
+    position: fixed;
     top: 20px;
     left: 20px;
     display: flex;
     gap: 10px;
+    z-index: 100;
 }
 
 .icon-btn {
     background: white;
     border: none;
     border-radius: 50%;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     font-size: 1.2rem;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: transform 0.2s ease;
 }
 
@@ -70,7 +60,22 @@ body {
     transform: scale(1.08);
 }
 
-/* HEADER & TITLE */
+/* GAME CARD */
+.game-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 24px;
+    flex: 1;
+    min-width: 320px;
+    max-width: 420px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 .game-header {
     text-align: center;
     margin-bottom: 16px;
@@ -84,73 +89,54 @@ body {
 
 .status-subtitle {
     font-size: 0.9rem;
-    color: #64748b;
-    font-weight: 600;
+    color: #475569;
+    font-weight: 700;
 }
 
-/* PLAYERS DISPLAY */
+/* PLAYERS ROW */
 .players-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    gap: 8px;
 }
 
 .player-box {
     background: #f8fafc;
     border: 2px solid #e2e8f0;
     border-radius: 16px;
-    padding: 12px 18px;
+    padding: 10px 14px;
     text-align: center;
     flex: 1;
-    transition: all 0.3s ease;
 }
 
 .player-box.active-turn {
     border-color: var(--primary-blue);
-    box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
     background: #eff6ff;
-}
-
-.player-symbol {
-    font-size: 1.5rem;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.25);
 }
 
 .player-name {
     font-size: 0.85rem;
     font-weight: 700;
     color: #334155;
-    margin: 4px 0;
 }
 
-.player-score {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--primary-blue);
-}
-
-.vs-badge {
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: #94a3b8;
-    margin: 0 10px;
-}
-
-/* BOARD */
+/* BOARD GRID */
 .board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     width: 100%;
-    max-width: 320px;
     aspect-ratio: 1;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .board.disabled {
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.8;
 }
 
 .cell {
@@ -162,34 +148,10 @@ body {
     font-size: 2.2rem;
     cursor: pointer;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-    transition: transform 0.15s ease, background 0.15s ease;
+    border: 1px solid #cbd5e1;
 }
 
-.cell:hover {
-    background: #f1f5f9;
-    transform: translateY(-2px);
-}
-
-/* ACTION BUTTONS */
-.action-btn {
-    width: 100%;
-    background: var(--primary-blue);
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 14px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.action-btn:hover {
-    background: var(--primary-blue-hover);
-}
-
-/* --- RE-ORGANIZED CHAT SIDEBAR --- */
+/* CHAT BOX SIDEBAR FIX */
 .chat-sidebar {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -203,21 +165,6 @@ body {
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
 }
 
-.chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 10px;
-}
-
-.chat-header h3 {
-    font-size: 0.95rem;
-    font-weight: 800;
-    color: #0f172a;
-}
-
 .chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -228,74 +175,22 @@ body {
     margin-bottom: 10px;
 }
 
-.chat-messages::-webkit-scrollbar {
-    width: 4px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
 .chat-msg {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     padding: 8px 12px;
     border-radius: 12px 12px 12px 2px;
     font-size: 0.82rem;
-    line-height: 1.3;
-    max-width: 85%;
-    align-self: flex-start;
     color: #1e293b;
     word-break: break-word;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    align-self: flex-start;
 }
 
 .chat-msg.my-msg {
     background: var(--primary-blue);
-    border-color: var(--primary-blue);
     color: #ffffff;
     border-radius: 12px 12px 2px 12px;
     align-self: flex-end;
-}
-
-.chat-msg strong {
-    font-weight: 700;
-    margin-right: 4px;
-}
-
-.chat-msg.my-msg strong {
-    color: #bfdbfe;
-}
-
-.chat-form {
-    display: flex;
-    gap: 8px;
-}
-
-.chat-form input {
-    flex: 1;
-    border: 1.5px solid #cbd5e1;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    outline: none;
-    background: #ffffff;
-}
-
-.chat-form input:focus {
-    border-color: var(--primary-blue);
-}
-
-.chat-send-btn {
-    background: var(--primary-blue);
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 700;
-    font-size: 0.85rem;
 }
 
 /* LEADERBOARD OWNER STYLE */
