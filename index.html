@@ -4,15 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TicTac Duel Arena</title>
+    <!-- Relative CSS Path Fix -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+    <!-- Background Image Container -->
     <div class="background-overlay"></div>
 
-    <!-- Header Navigation Bar -->
+    <!-- Header Fixed Navigation -->
     <header class="app-top-bar">
         <div id="user-profile-bar" class="profile-bar hidden">
-            <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/32" alt="Avatar">
+            <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/32" alt="Profile">
             <div class="user-info">
                 <span id="user-name-display" class="user-name-display">Player</span>
                 <span id="user-stats-display" class="user-stats-display">Wins: 0</span>
@@ -26,8 +29,10 @@
         </div>
     </header>
 
-    <!-- Main Game Container -->
+    <!-- Main Side-By-Side Layout Wrapper -->
     <main class="game-container">
+        
+        <!-- Game Arena Card -->
         <section class="game-main-content">
             <div class="game-header">
                 <h1><span class="wolf-icon">🐺</span> TicTac Duel</h1>
@@ -39,7 +44,6 @@
                 <button id="copy-game-link" class="icon-link-btn" title="Copy Code">📋</button>
             </div>
 
-            <!-- Scoreboard -->
             <div class="scoreboard">
                 <div id="p1-box" class="player-box">
                     <span class="avatar">❌</span>
@@ -54,7 +58,6 @@
                 </div>
             </div>
 
-            <!-- Tic Tac Toe Grid Board -->
             <div class="board-wrapper">
                 <div id="board" class="board disabled">
                     <div class="cell" data-index="0"></div>
@@ -69,15 +72,15 @@
                 </div>
             </div>
 
-            <button id="toggle-chat-btn" class="mobile-chat-toggle">💬 Open Chat</button>
-
             <div class="game-action-buttons">
-                <button id="rematch-btn" class="action-btn hidden">Play Again</button>
-                <button id="leave-room-btn" class="action-btn accent hidden">Leave Room</button>
+                <button id="rematch-btn" class="action-btn hidden">Play Again 🔄</button>
+                <button id="leave-room-btn" class="action-btn hidden" style="background:#dc2626;">Leave Room</button>
             </div>
+
+            <button id="toggle-chat-btn" class="mobile-chat-toggle">💬 Open Chat</button>
         </section>
 
-        <!-- Sidebar Chat Box -->
+        <!-- Sidebar Room Chat -->
         <aside id="chat-box" class="chat-sidebar hidden">
             <div class="chat-header">
                 <h3>Room Chat</h3>
@@ -85,41 +88,40 @@
             </div>
             <div id="chat-messages" class="chat-messages"></div>
             <form id="chat-form" class="chat-form">
-                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="100" autocomplete="off">
+                <input id="chat-input" type="text" placeholder="Type a message..." maxlength="100" autocomplete="off" required>
                 <button type="submit" class="chat-send-btn">Send</button>
             </form>
         </aside>
     </main>
 
-    <!-- Initial Lobby / Join Room Overlay -->
+    <!-- Join / Room Creation Overlay Modal -->
     <div id="join-overlay" class="overlay">
         <div class="overlay-card">
             <span class="brand-badge">🐺 TICTAC DUEL ARENA</span>
             <h2>Play TicTac Duel</h2>
             <p class="overlay-subtitle">Enter your name or sign in to sync stats</p>
 
-            <div id="lobby-interactive-section" class="form-stack">
-                <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="15">
-                
+            <div class="form-stack">
+                <input type="text" id="username-input" placeholder="Enter your name" maxlength="15">
                 <button id="google-login-btn" class="google-btn">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="G">
                     Link Account with Google
                 </button>
+            </div>
 
-                <div class="or-divider"><span>GAME MODES</span></div>
+            <div class="or-divider"><span>GAME MODES</span></div>
 
-                <div class="lobby-actions">
-                    <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
-                    <div class="join-room-box">
-                        <input type="text" id="room-code-input" placeholder="ROOM CODE..." maxlength="6">
-                        <button id="join-code-btn" class="overlay-btn accent">Join</button>
-                    </div>
+            <div id="lobby-interactive-section" class="lobby-actions">
+                <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
+                <div class="join-room-box">
+                    <input type="text" id="room-code-input" placeholder="ROOM CODE..." maxlength="6">
+                    <button id="join-code-btn" class="overlay-btn accent">Join</button>
                 </div>
             </div>
 
             <div id="room-wait-box" class="room-wait-box hidden">
-                <p class="wait-label">Share this code with your opponent:</p>
-                <div id="room-code-display" class="room-code-text">------</div>
+                <p class="wait-label">Share code with opponent:</p>
+                <h3 id="room-code-display" class="room-code-text">------</h3>
                 <button id="copy-link-btn" class="overlay-btn primary">📋 Copy Room Code</button>
             </div>
         </div>
@@ -129,15 +131,15 @@
     <div id="leaderboard-modal" class="modal hidden">
         <div class="modal-card">
             <h2>🏆 Leaderboard</h2>
-            <div id="leaderboard-list" class="leaderboard-list">Loading...</div>
+            <div id="leaderboard-list" class="leaderboard-list"></div>
             <button id="close-leaderboard-btn" class="overlay-btn primary">Close</button>
         </div>
     </div>
 
-    <!-- Modern Notification Toast -->
+    <!-- Toast Notification Container -->
     <div id="toast-notification" class="toast hidden">
         <span id="toast-icon">⚠️</span>
-        <span id="toast-message">Notification message</span>
+        <span id="toast-message">Notification</span>
     </div>
 
     <script type="module" src="app.js"></script>
