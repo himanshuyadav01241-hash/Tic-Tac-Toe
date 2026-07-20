@@ -38,7 +38,6 @@ body {
     pointer-events: none;
 }
 
-/* Dynamically injected or styled petals */
 .petal {
     position: absolute;
     background: linear-gradient(to bottom right, #ffb7c5, #ff9eb2);
@@ -52,6 +51,42 @@ body {
     10% { opacity: 1; }
     90% { opacity: 1; }
     100% { top: 105vh; transform: translateX(100px) rotate(720deg); opacity: 0; }
+}
+
+/* --- Audio Controls Floating Bar --- */
+.audio-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.icon-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, opacity 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.icon-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.icon-btn.muted {
+    opacity: 0.5;
 }
 
 /* --- Main Glassmorphic Game Card --- */
@@ -196,26 +231,42 @@ body {
     to { transform: scale(1.04); }
 }
 
-/* --- Buttons --- */
-button.reset-button, .overlay-btn {
-    background: var(--accent-color);
-    color: white;
+/* --- Rematch & Action Controls --- */
+.game-action-buttons {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.action-btn {
+    background: var(--sakura-pink);
+    color: var(--text-color);
     border: none;
-    padding: 12px 24px;
+    padding: 12px 18px;
     border-radius: 14px;
     cursor: pointer;
     font-weight: 600;
     transition: transform 0.2s, background 0.2s;
     font-size: 0.9rem;
-    width: 100%;
+    flex: 1;
 }
 
-button.reset-button:hover, .overlay-btn:hover {
+.action-btn.secondary-btn {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--glass-border);
+}
+
+.action-btn:hover {
     transform: translateY(-2px);
-    background: #5a72e6;
 }
 
-/* --- Setup Overlay Module --- */
+.action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* --- Setup Overlay & Multi-Room Hub --- */
 .overlay {
     position: fixed;
     top: 0;
@@ -245,7 +296,7 @@ button.reset-button:hover, .overlay-btn:hover {
     border-radius: 28px;
     text-align: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    max-width: 340px;
+    max-width: 360px;
     width: 90%;
     display: flex;
     flex-direction: column;
@@ -286,14 +337,88 @@ button.reset-button:hover, .overlay-btn:hover {
     border-color: var(--accent-color);
 }
 
+.lobby-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.or-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: #a0aec0;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.or-divider::before, .or-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.or-divider span {
+    padding: 0 8px;
+}
+
+.join-room-box {
+    display: flex;
+    gap: 8px;
+}
+
+.join-room-box input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    outline: none;
+    text-transform: uppercase;
+}
+
 .overlay-btn {
     background: var(--sakura-pink);
-    color: #4a5568;
+    color: var(--text-color);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, background 0.2s;
+    font-size: 0.9rem;
+    width: 100%;
     box-shadow: 0 4px 12px rgba(255, 183, 197, 0.4);
 }
 
 .overlay-btn:hover {
+    transform: translateY(-2px);
     background: #ffa4b5;
+}
+
+.overlay-btn.secondary {
+    background: var(--accent-color);
+    color: white;
+    width: auto;
+    padding: 10px 18px;
+    box-shadow: none;
+}
+
+.overlay-btn.secondary:hover {
+    background: #5a72e6;
+}
+
+.room-code-text {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.5);
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
 }
 
 .hidden {
