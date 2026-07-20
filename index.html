@@ -12,7 +12,7 @@
 
     <!-- Top Navigation Bar -->
     <div class="app-top-bar">
-        <div id="user-profile-bar" class="profile-bar hidden">
+        <div id="user-profile-bar" class="profile-bar hidden" title="Click to Manage Profile">
             <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
             <div class="user-info">
                 <span id="user-name-display" class="user-name-display">Player</span>
@@ -132,6 +132,20 @@
             <h2>🏆 Leaderboard</h2>
             <div id="leaderboard-list" class="leaderboard-list">Loading...</div>
             <button id="close-leaderboard-btn" class="overlay-btn accent">Close</button>
+        </div>
+    </div>
+
+    <!-- Manage Profile Modal -->
+    <div id="manage-profile-modal" class="modal hidden">
+        <div class="modal-card">
+            <h2>⚙️ Manage Profile</h2>
+            <div class="profile-modal-body">
+                <img id="profile-modal-avatar" src="https://via.placeholder.com/80" alt="Avatar" class="profile-preview-avatar">
+                <label for="profile-name-input">Display Name:</label>
+                <input type="text" id="profile-name-input" placeholder="Enter new display name..." maxlength="15" />
+                <button id="save-profile-btn" class="overlay-btn primary">Save Changes</button>
+            </div>
+            <button id="close-profile-modal-btn" class="overlay-btn accent">Close</button>
         </div>
     </div>
 
