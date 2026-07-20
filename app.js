@@ -32,6 +32,7 @@ let isMusicPlaying = false;
 
 // DOM Elements
 const overlay = document.getElementById('join-overlay');
+const gameContainer = document.querySelector('.game-container');
 const usernameInput = document.getElementById('username-input');
 const googleBtn = document.getElementById('google-login-btn');
 const createRoomBtn = document.getElementById('create-room-btn');
@@ -79,6 +80,11 @@ const leaderboardList = document.getElementById('leaderboard-list');
 
 const musicToggleBtn = document.getElementById('music-toggle-btn');
 const bgMusic = document.getElementById('bg-music');
+
+// Ensure game container is hidden when lobby is showing
+if (overlay && !overlay.classList.contains('hidden') && gameContainer) {
+    gameContainer.classList.add('hidden');
+}
 
 // --- BACKGROUND MUSIC TOGGLE ---
 if (musicToggleBtn && bgMusic) {
@@ -211,8 +217,9 @@ function joinRoom(roomId, symbol, closeOverlayImmediately = false) {
     currentRoomId = roomId;
     playerSymbol = symbol;
 
-    if (closeOverlayImmediately && overlay) {
-        overlay.classList.add('hidden');
+    if (closeOverlayImmediately) {
+        if (overlay) overlay.classList.add('hidden');
+        if (gameContainer) gameContainer.classList.remove('hidden');
     }
 
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
@@ -233,8 +240,9 @@ function listenToRoom(roomId) {
         if (!room) return;
 
         // Auto-close Host's wait overlay as soon as Player 2 joins
-        if (room.status === 'playing' && overlay) {
-            overlay.classList.add('hidden');
+        if (room.status === 'playing') {
+            if (overlay) overlay.classList.add('hidden');
+            if (gameContainer) gameContainer.classList.remove('hidden');
         }
 
         // Display Player 1 (Owner/Host) and Player 2 names & scores
