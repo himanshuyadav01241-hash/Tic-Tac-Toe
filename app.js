@@ -7,6 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // --- FIREBASE CONFIGURATION ---
+// ⚠️ Ensure these match your Firebase Console project settings!
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -20,7 +21,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+
+// Provider setup
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
 
 // --- DOM ELEMENTS ---
 const joinOverlay = document.getElementById('join-overlay');
@@ -87,7 +92,7 @@ const WINNING_COMBOS = [
     [0, 4, 8], [2, 4, 6]
 ];
 
-// --- AUTHENTICATION ---
+// --- GOOGLE SIGN IN FIXED ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -98,16 +103,20 @@ onAuthStateChanged(auth, async (user) => {
         if (userProfileBar) userProfileBar.classList.remove('hidden');
         if (googleLoginBtn) {
             googleLoginBtn.classList.add('signed-in');
-            googleLoginBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
+            googleLoginBtn.innerHTML = `✓ ${user.displayName ? user.displayName.split(' ')[0] : 'Connected'}`;
         }
 
-        const userRef = ref(db, `users/${user.uid}`);
-        const snap = await get(userRef);
-        if (!snap.exists()) {
-            await set(userRef, { name: user.displayName, wins: 0 });
-            if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
-        } else {
-            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snap.val().wins || 0}`;
+        try {
+            const userRef = ref(db, `users/${user.uid}`);
+            const snap = await get(userRef);
+            if (!snap.exists()) {
+                await set(userRef, { name: user.displayName || 'Player', wins: 0 });
+                if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
+            } else {
+                if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snap.val().wins || 0}`;
+            }
+        } catch (err) {
+            console.error("Error fetching user data:", err);
         }
     } else {
         currentUser = null;
@@ -120,14 +129,108 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 if (googleLoginBtn) {
-    googleLoginBtn.addEventListener('click', () => {
-        if (!currentUser) signInWithPopup(auth, googleProvider).catch(console.error);
+    googleLoginBtn.addEventListener('click', async () => {
+        if (!currentUser) {
+            try {
+                await signInWithPopup(auth, googleProvider);
+            } catch (error) {
+                console.error("Google Auth Error:", error);
+                alert(`Sign in failed: ${error.message}`);
+            }
+        }
     });
 }
 
-if (logoutBtn) logoutBtn.addEventListener('click', () => signOut(auth));
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        signOut(auth).then(() => location.reload()).catch(console.error);
+    });
+}
 
-// --- ROOM LOGIC ---
+// --- LEADERBOARD LOGIC FIXED ---
+if (leaderboardBtn) {
+    leaderboardBtn.addEventListener('click', async () => {
+        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+        if (leaderboardList) leaderboardList.innerHTML = '<div style="padding:10px;">Fetching Top Players...</div>';
+
+        try {
+            const snapshot = await get(ref(db, 'users'));
+            let users = [];
+
+            if (snapshot.exists()) {
+                snapshot.forEach((child) => {
+                    const val = child.val();
+                    if (val && typeof val === 'object') {
+                        users.push({ 
+                            uid: child.key, 
+                            name: val.name || 'Anonymous', 
+                            wins: typeof val.wins === 'number' ? val.wins : 0 
+                        });
+                    }
+                });
+            }
+
+            // Sort by wins descending
+            users.sort((a, b) => b.wins - a.wins);
+
+            const ownerName = currentUser ? currentUser.displayName : "Himanshu Yadav";
+
+            let html = `
+                <div class="lb-row owner-row">
+                    <span class="owner-name">#1 👑 ${ownerName}</span>
+                    <span class="owner-score">Owner</span>
+                </div>
+            `;
+
+            if (users.length === 0) {
+                html += `<div style="padding:10px; font-size:0.8rem; color:#64748b;">No rank history found yet! Play a match to get listed.</div>`;
+            } else {
+                html += users.slice(0, 8).map((u, i) => `
+                    <div class="lb-row">
+                        <span>#${i + 2} ${u.name}</span>
+                        <span class="lb-score">🏆 ${u.wins} Wins</span>
+                    </div>
+                `).join('');
+            }
+
+            if (leaderboardList) leaderboardList.innerHTML = html;
+        } catch (err) {
+            console.error("Leaderboard error:", err);
+            if (leaderboardList) leaderboardList.innerHTML = `<div style="color:#ef4444; padding:10px;">Failed to load leaderboard. Check DB rules!</div>`;
+        }
+    });
+}
+
+if (closeLeaderboardBtn && leaderboardModal) {
+    closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
+}
+
+// --- MUSIC CONTROLLER FIXED ---
+if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', () => {
+        if (!bgMusic) return;
+
+        if (isMusicPlaying) {
+            bgMusic.pause();
+            musicToggleBtn.textContent = '🎵';
+            isMusicPlaying = false;
+        } else {
+            // Attempt to play user background music file
+            const playPromise = bgMusic.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    musicToggleBtn.textContent = '🔊';
+                    isMusicPlaying = true;
+                }).catch(err => {
+                    console.warn("Audio file missing or blocked by browser policies:", err);
+                    alert("Audio file 'bg-music.mp3' not found or blocked! Place 'bg-music.mp3' in your root project folder.");
+                });
+            }
+        }
+    });
+}
+
+// --- ROOM AND MATCHMAKING LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -183,7 +286,6 @@ if (joinCodeBtn) {
     });
 }
 
-// --- GAME UPDATES ---
 function listenToRoomUpdates(code) {
     const roomRef = ref(db, `rooms/${code}`);
 
@@ -200,7 +302,7 @@ function listenToRoomUpdates(code) {
         renderBoard();
 
         if (data.status === 'waiting') {
-            if (statusText) statusText.textContent = "Waiting for opponent...";
+            if (statusText) statusText.textContent = "Waiting for opponent to join...";
             if (boardElement) boardElement.classList.add('disabled');
         } else if (data.status === 'playing') {
             if (joinOverlay) joinOverlay.classList.add('hidden');
@@ -303,7 +405,7 @@ if (rematchBtn) {
 
 if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', () => location.reload());
 
-// --- CHAT LOGIC ---
+// --- CHAT SYSTEM ---
 if (chatForm) {
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -341,63 +443,6 @@ function listenToChat(code) {
 if (toggleChatBtn && chatBox) toggleChatBtn.addEventListener('click', () => chatBox.classList.remove('hidden'));
 if (closeChatBtn && chatBox) closeChatBtn.addEventListener('click', () => chatBox.classList.add('hidden'));
 
-// --- LEADERBOARD LOGIC ---
-if (leaderboardBtn) {
-    leaderboardBtn.addEventListener('click', async () => {
-        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = 'Loading...';
-
-        const snapshot = await get(ref(db, 'users'));
-        let users = [];
-
-        if (snapshot.exists()) {
-            snapshot.forEach((child) => {
-                const val = child.val();
-                if (!currentUser || child.key !== currentUser.uid) {
-                    users.push({ uid: child.key, name: val.name || 'Anonymous', wins: val.wins || 0 });
-                }
-            });
-        }
-
-        users.sort((a, b) => b.wins - a.wins);
-        const ownerName = currentUser ? currentUser.displayName : "Himanshu Yadav";
-
-        let html = `
-            <div class="lb-row owner-row">
-                <span class="owner-name">#1 👑 ${ownerName}</span>
-                <span class="owner-score">Owner</span>
-            </div>
-        `;
-
-        html += users.slice(0, 9).map((u, i) => `
-            <div class="lb-row">
-                <span>#${i + 2} ${u.name}</span>
-                <span class="lb-score">🏆 ${u.wins} Wins</span>
-            </div>
-        `).join('');
-
-        if (leaderboardList) leaderboardList.innerHTML = html;
-    });
-}
-
-if (closeLeaderboardBtn && leaderboardModal) {
-    closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
-}
-
-// --- MUSIC CONTROLLER ---
-if (musicToggleBtn && bgMusic) {
-    musicToggleBtn.addEventListener('click', () => {
-        if (isMusicPlaying) {
-            bgMusic.pause();
-            musicToggleBtn.textContent = '🎵';
-        } else {
-            bgMusic.play().catch(err => console.log("Audio play blocked by browser:", err));
-            musicToggleBtn.textContent = '🔊';
-        }
-        isMusicPlaying = !isMusicPlaying;
-    });
-}
-
-// Clipboard Copies
+// --- COPY CODE BUTTONS ---
 if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
 if (copyGameLink) copyGameLink.addEventListener('click', () => navigator.clipboard.writeText(currentRoomCode));
