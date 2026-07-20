@@ -39,6 +39,9 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 const googleProvider = new GoogleAuthProvider();
 
+// --- DEVELOPER RECOGNITION (Add your email/UID/Name here) ---
+const DEV_NAMES = ["Himanshu Yadav"]; // Add any developer names or emails
+
 // --- DOM ELEMENTS ---
 const joinOverlay = document.getElementById('join-overlay');
 const gameContainer = document.getElementById('game-container');
@@ -101,45 +104,55 @@ let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
 
-// --- AUTHENTICATION LISTENERS ---
+// --- AUTHENTICATION ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
-        usernameInput.value = user.displayName || "Player";
-        usernameInput.readOnly = true;
-        googleLoginBtn.classList.add('hidden');
-        signedInBadge.classList.remove('hidden');
+        if (usernameInput) {
+            usernameInput.value = user.displayName || "Player";
+            usernameInput.readOnly = true;
+        }
+        if (googleLoginBtn) googleLoginBtn.classList.add('hidden');
+        if (signedInBadge) signedInBadge.classList.remove('hidden');
 
-        userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
-        userNameDisplay.textContent = user.displayName || "Player";
-        userProfileBar.classList.remove('hidden');
+        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
+        if (userNameDisplay) {
+            const isDev = DEV_NAMES.includes(user.displayName);
+            userNameDisplay.innerHTML = `${user.displayName || "Player"} ${isDev ? '<span style="color:#ef4444; font-size:0.65rem; font-weight:800; background:#fee2e2; padding:2px 6px; border-radius:6px; border:1px solid #fecaca; margin-left:4px;">DEV</span>' : ''}`;
+        }
+        if (userProfileBar) userProfileBar.classList.remove('hidden');
 
         await syncUserData(user);
     } else {
         currentUser = null;
-        usernameInput.value = "";
-        usernameInput.readOnly = false;
-        googleLoginBtn.classList.remove('hidden');
-        signedInBadge.classList.add('hidden');
-        userProfileBar.classList.add('hidden');
+        if (usernameInput) {
+            usernameInput.value = "";
+            usernameInput.readOnly = false;
+        }
+        if (googleLoginBtn) googleLoginBtn.classList.remove('hidden');
+        if (signedInBadge) signedInBadge.classList.add('hidden');
+        if (userProfileBar) userProfileBar.classList.add('hidden');
     }
 });
 
-// GOOGLE SIGN-IN HANDLER WITH DETAILED ERROR CAPTURE
-googleLoginBtn.addEventListener('click', async () => {
-    try {
-        const result = await signInWithPopup(auth, googleProvider);
-        console.log("Logged in successfully:", result.user);
-    } catch (error) {
-        console.error("Firebase Auth Error:", error);
-        alert(`Sign In Failed: ${error.message} (Code: ${error.code})`);
-    }
-});
+if (googleLoginBtn) {
+    googleLoginBtn.addEventListener('click', async () => {
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            console.log("Logged in successfully:", result.user);
+        } catch (error) {
+            console.error("Firebase Auth Error:", error);
+            alert(`Sign In Failed: ${error.message}`);
+        }
+    });
+}
 
-logoutBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    signOut(auth);
-});
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        signOut(auth);
+    });
+}
 
 async function syncUserData(user) {
     try {
@@ -150,80 +163,84 @@ async function syncUserData(user) {
                 name: user.displayName || "Player",
                 email: user.email,
                 wins: 0,
-                avatar: user.photoURL || 'https://via.placeholder.com/32'
+                avatar: user.photoURL || 'https://via.placeholder.com/32',
+                isDev: DEV_NAMES.includes(user.displayName)
             });
-            userStatsDisplay.textContent = "Wins: 0";
+            if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
         } else {
             const data = snapshot.val();
-            userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
+            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${data.wins || 0}`;
         }
     } catch (err) {
         console.error("Error syncing user data:", err);
     }
 }
 
-// --- ROOM CREATION & JOINING ---
+// --- ROOM MANAGEMENT ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 function getPlayerName() {
-    return usernameInput.value.trim() || "Guest_" + Math.floor(1000 + Math.random() * 9000);
+    return (usernameInput && usernameInput.value.trim()) || "Guest_" + Math.floor(1000 + Math.random() * 9000);
 }
 
-createRoomBtn.addEventListener('click', async () => {
-    const name = getPlayerName();
-    currentRoomCode = generateRoomCode();
-    isHost = true;
-    playerSymbol = 'X';
+if (createRoomBtn) {
+    createRoomBtn.addEventListener('click', async () => {
+        const name = getPlayerName();
+        currentRoomCode = generateRoomCode();
+        isHost = true;
+        playerSymbol = 'X';
 
-    const roomRef = ref(db, `rooms/${currentRoomCode}`);
-    await set(roomRef, {
-        hostName: name,
-        hostScore: 0,
-        guestName: "",
-        guestScore: 0,
-        board: Array(9).fill(""),
-        turn: 'X',
-        status: 'waiting',
-        winner: "",
-        createdAt: serverTimestamp()
+        const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        await set(roomRef, {
+            hostName: name,
+            hostScore: 0,
+            guestName: "",
+            guestScore: 0,
+            board: Array(9).fill(""),
+            turn: 'X',
+            status: 'waiting',
+            winner: "",
+            createdAt: serverTimestamp()
+        });
+
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
+        listenToRoom(currentRoomCode);
     });
+}
 
-    roomWaitBox.classList.remove('hidden');
-    roomCodeDisplay.textContent = currentRoomCode;
-    listenToRoom(currentRoomCode);
-});
+if (joinCodeBtn) {
+    joinCodeBtn.addEventListener('click', async () => {
+        const code = roomCodeInput ? roomCodeInput.value.trim().toUpperCase() : "";
+        if (code.length !== 6) return alert("Please enter a valid 6-character Room Code.");
 
-joinCodeBtn.addEventListener('click', async () => {
-    const code = roomCodeInput.value.trim().toUpperCase();
-    if (code.length !== 6) return alert("Please enter a valid 6-character Room Code.");
+        const roomRef = ref(db, `rooms/${code}`);
+        const snapshot = await get(roomRef);
 
-    const roomRef = ref(db, `rooms/${code}`);
-    const snapshot = await get(roomRef);
+        if (!snapshot.exists()) return alert("Room not found!");
+        const room = snapshot.val();
 
-    if (!snapshot.exists()) return alert("Room not found!");
-    const room = snapshot.val();
+        if (room.guestName && room.guestName !== "") {
+            return alert("Room is already full!");
+        }
 
-    if (room.guestName && room.guestName !== "") {
-        return alert("Room is already full!");
-    }
+        currentRoomCode = code;
+        isHost = false;
+        playerSymbol = 'O';
 
-    currentRoomCode = code;
-    isHost = false;
-    playerSymbol = 'O';
+        await update(roomRef, {
+            guestName: getPlayerName(),
+            status: 'active'
+        });
 
-    await update(roomRef, {
-        guestName: getPlayerName(),
-        status: 'active'
+        listenToRoom(currentRoomCode);
     });
-
-    listenToRoom(currentRoomCode);
-});
+}
 
 function listenToRoom(code) {
     const roomRef = ref(db, `rooms/${code}`);
-    
     if (roomUnsubscribe) roomUnsubscribe();
 
     roomUnsubscribe = onValue(roomRef, (snapshot) => {
@@ -240,62 +257,63 @@ function listenToRoom(code) {
     listenToChat(code);
 }
 
-// --- GAME UI MANAGEMENT ---
+// --- GAME UI UPDATE ---
 function updateGameUI(room) {
-    // Hide the entry overlay completely & unhide game workspace
-    joinOverlay.classList.add('hidden');
-    gameContainer.classList.remove('hidden');
+    if (joinOverlay) joinOverlay.classList.add('hidden');
+    if (gameContainer) gameContainer.classList.remove('hidden');
 
-    gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
-    activeRoomBadge.classList.remove('hidden');
+    if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
+    if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
 
-    p1Name.textContent = room.hostName || "Host";
-    p2Name.textContent = room.guestName || "Waiting...";
-    p1Score.textContent = room.hostScore || 0;
-    p2Score.textContent = room.guestScore || 0;
+    if (p1Name) p1Name.textContent = room.hostName || "Host";
+    if (p2Name) p2Name.textContent = room.guestName || "Waiting...";
+    if (p1Score) p1Score.textContent = room.hostScore || 0;
+    if (p2Score) p2Score.textContent = room.guestScore || 0;
 
-    // Render Board Grid
     room.board.forEach((val, idx) => {
-        cells[idx].textContent = val;
+        if (cells[idx]) cells[idx].textContent = val;
     });
 
-    // Handle Game Rules & Turns
     if (room.status === 'waiting') {
-        statusText.textContent = "Waiting for an opponent to join...";
-        board.classList.add('disabled');
+        if (statusText) statusText.textContent = "Waiting for an opponent to join...";
+        if (board) board.classList.add('disabled');
     } else if (room.status === 'active') {
-        board.classList.remove('disabled');
-        rematchBtn.classList.add('hidden');
-        leaveRoomBtn.classList.remove('hidden');
+        if (board) board.classList.remove('disabled');
+        if (rematchBtn) rematchBtn.classList.add('hidden');
+        if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
         if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
         if (chatBox) chatBox.classList.remove('hidden');
 
-        if (room.turn === playerSymbol) {
-            statusText.textContent = "Your Turn! (" + playerSymbol + ")";
-        } else {
-            statusText.textContent = (room.turn === 'X' ? room.hostName : room.guestName) + "'s Turn...";
+        if (statusText) {
+            if (room.turn === playerSymbol) {
+                statusText.textContent = "Your Turn! (" + playerSymbol + ")";
+            } else {
+                statusText.textContent = (room.turn === 'X' ? room.hostName : room.guestName) + "'s Turn...";
+            }
         }
 
         if (room.turn === 'X') {
-            p1Box.classList.add('active-turn');
-            p2Box.classList.remove('active-turn');
+            if (p1Box) p1Box.classList.add('active-turn');
+            if (p2Box) p2Box.classList.remove('active-turn');
         } else {
-            p2Box.classList.add('active-turn');
-            p1Box.classList.remove('active-turn');
+            if (p2Box) p2Box.classList.add('active-turn');
+            if (p1Box) p1Box.classList.remove('active-turn');
         }
     } else if (room.status === 'finished') {
-        board.classList.add('disabled');
-        p1Box.classList.remove('active-turn');
-        p2Box.classList.remove('active-turn');
+        if (board) board.classList.add('disabled');
+        if (p1Box) p1Box.classList.remove('active-turn');
+        if (p2Box) p2Box.classList.remove('active-turn');
 
-        if (room.winner === 'draw') {
-            statusText.textContent = "It's a Draw! 🤝";
-        } else {
-            const winnerName = room.winner === 'X' ? room.hostName : room.guestName;
-            statusText.textContent = `${winnerName} Wins! 🎉`;
+        if (statusText) {
+            if (room.winner === 'draw') {
+                statusText.textContent = "It's a Draw! 🤝";
+            } else {
+                const winnerName = room.winner === 'X' ? room.hostName : room.guestName;
+                statusText.textContent = `${winnerName} Wins! 🎉`;
+            }
         }
 
-        if (isHost) rematchBtn.classList.remove('hidden');
+        if (isHost && rematchBtn) rematchBtn.classList.remove('hidden');
     }
 }
 
@@ -329,7 +347,7 @@ cells.forEach((cell) => {
                 updates.guestScore = (room.guestScore || 0) + 1;
                 if (!isHost && currentUser) incrementWins(currentUser.uid);
             }
-        } else if (newBoard.every(cell => cell !== "")) {
+        } else if (newBoard.every(c => c !== "")) {
             updates.status = 'finished';
             updates.winner = 'draw';
         } else {
@@ -357,20 +375,22 @@ async function incrementWins(uid) {
     const snapshot = await get(userRef);
     const currentWins = snapshot.val() || 0;
     await set(userRef, currentWins + 1);
-    userStatsDisplay.textContent = `Wins: ${currentWins + 1}`;
+    if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${currentWins + 1}`;
 }
 
 // --- REMATCH & LEAVE ---
-rematchBtn.addEventListener('click', async () => {
-    if (!isHost) return;
-    const roomRef = ref(db, `rooms/${currentRoomCode}`);
-    await update(roomRef, {
-        board: Array(9).fill(""),
-        turn: 'X',
-        status: 'active',
-        winner: ""
+if (rematchBtn) {
+    rematchBtn.addEventListener('click', async () => {
+        if (!isHost) return;
+        const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        await update(roomRef, {
+            board: Array(9).fill(""),
+            turn: 'X',
+            status: 'active',
+            winner: ""
+        });
     });
-});
+}
 
 function leaveRoom() {
     if (currentRoomCode && isHost) {
@@ -379,12 +399,13 @@ function leaveRoom() {
     location.reload();
 }
 
-leaveRoomBtn.addEventListener('click', leaveRoom);
+if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', leaveRoom);
 
 // --- CHAT SYSTEM ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     onValue(chatRef, (snapshot) => {
+        if (!chatMessages) return;
         chatMessages.innerHTML = "";
         if (!snapshot.exists()) return;
 
@@ -400,100 +421,129 @@ function listenToChat(code) {
     });
 }
 
-chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const text = chatInput.value.trim();
-    if (!text || !currentRoomCode) return;
+if (chatForm) {
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = chatInput ? chatInput.value.trim() : "";
+        if (!text || !currentRoomCode) return;
 
-    const chatRef = ref(db, `chats/${currentRoomCode}`);
-    await push(chatRef, {
-        sender: getPlayerName(),
-        text: text,
-        timestamp: serverTimestamp()
+        const chatRef = ref(db, `chats/${currentRoomCode}`);
+        await push(chatRef, {
+            sender: getPlayerName(),
+            text: text,
+            timestamp: serverTimestamp()
+        });
+
+        if (chatInput) chatInput.value = "";
     });
-
-    chatInput.value = "";
-});
+}
 
 if (toggleChatBtn) {
     toggleChatBtn.addEventListener('click', () => {
-        chatBox.classList.add('active');
+        if (chatBox) chatBox.classList.add('active');
     });
 }
 
 if (closeChatBtn) {
     closeChatBtn.addEventListener('click', () => {
-        chatBox.classList.remove('active');
+        if (chatBox) chatBox.classList.remove('active');
     });
 }
 
-// --- LEADERBOARD MODAL ---
-leaderboardBtn.addEventListener('click', async () => {
-    leaderboardModal.classList.remove('hidden');
-    leaderboardList.innerHTML = "Loading...";
+// --- LEADERBOARD WITH DEVELOPER BADGES ---
+if (leaderboardBtn) {
+    leaderboardBtn.addEventListener('click', async () => {
+        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+        if (leaderboardList) leaderboardList.innerHTML = "Loading records...";
 
-    try {
-        const usersRef = query(ref(db, 'users'), orderByChild('wins'), limitToLast(10));
-        const snapshot = await get(usersRef);
+        try {
+            // Fetch all users to display complete leaderboard
+            const snapshot = await get(ref(db, 'users'));
 
-        if (!snapshot.exists()) {
-            leaderboardList.innerHTML = "No records found.";
-            return;
+            if (!snapshot.exists()) {
+                if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>No records found.</div>";
+                return;
+            }
+
+            let users = [];
+            snapshot.forEach((child) => {
+                users.push(child.val());
+            });
+
+            // Sort by wins descending
+            users.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+
+            if (leaderboardList) {
+                leaderboardList.innerHTML = "";
+                users.forEach((u, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'lb-row';
+                    
+                    // Check if user is Developer
+                    const isDev = DEV_NAMES.includes(u.name) || u.isDev;
+                    const devBadge = isDev ? `<span style="color:#ef4444; font-size:0.65rem; font-weight:800; background:#fee2e2; padding:2px 6px; border-radius:6px; border:1px solid #fecaca; margin-left:6px;">DEV</span>` : '';
+
+                    row.innerHTML = `
+                        <span class="lb-name">#${idx + 1} ${u.name || 'Player'} ${devBadge}</span>
+                        <span class="lb-score">${u.wins || 0} Wins</span>
+                    `;
+                    leaderboardList.appendChild(row);
+                });
+            }
+        } catch (err) {
+            console.error("Leaderboard Fetch Error:", err);
+            if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>Failed to load data.</div>";
         }
+    });
+}
 
-        let users = [];
-        snapshot.forEach((child) => users.push(child.val()));
-        users.reverse();
-
-        leaderboardList.innerHTML = "";
-        users.forEach((u, idx) => {
-            const row = document.createElement('div');
-            row.className = 'lb-row';
-            row.innerHTML = `
-                <span class="lb-name">#${idx + 1} ${u.name || 'Player'}</span>
-                <span class="lb-score">${u.wins || 0} Wins</span>
-            `;
-            leaderboardList.appendChild(row);
-        });
-    } catch (err) {
-        leaderboardList.innerHTML = "Failed to load leaderboard.";
-        console.error(err);
-    }
-});
-
-closeLeaderboardBtn.addEventListener('click', () => {
-    leaderboardModal.classList.add('hidden');
-});
+if (closeLeaderboardBtn) {
+    closeLeaderboardBtn.addEventListener('click', () => {
+        if (leaderboardModal) leaderboardModal.classList.add('hidden');
+    });
+}
 
 // --- PROFILE MODAL ---
-userProfileBar.addEventListener('click', () => {
-    if (!currentUser) return;
-    profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/70';
-    profileNameInput.value = currentUser.displayName || "";
-    manageProfileModal.classList.remove('hidden');
-});
+if (userProfileBar) {
+    userProfileBar.addEventListener('click', () => {
+        if (!currentUser) return;
+        if (profileModalAvatar) profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/70';
+        if (profileNameInput) profileNameInput.value = currentUser.displayName || "";
+        if (manageProfileModal) manageProfileModal.classList.remove('hidden');
+    });
+}
 
-closeProfileModalBtn.addEventListener('click', () => {
-    manageProfileModal.classList.add('hidden');
-});
+if (closeProfileModalBtn) {
+    closeProfileModalBtn.addEventListener('click', () => {
+        if (manageProfileModal) manageProfileModal.classList.add('hidden');
+    });
+}
 
 // --- AUDIO & COPY UTILITIES ---
-musicToggleBtn.addEventListener('click', () => {
-    if (bgMusic.paused) {
-        bgMusic.play();
-        musicToggleBtn.textContent = "🔊";
-    } else {
-        bgMusic.pause();
-        musicToggleBtn.textContent = "🎵";
-    }
-});
+if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', () => {
+        if (bgMusic) {
+            if (bgMusic.paused) {
+                bgMusic.play();
+                musicToggleBtn.textContent = "🔊";
+            } else {
+                bgMusic.pause();
+                musicToggleBtn.textContent = "🎵";
+            }
+        }
+    });
+}
 
-copyLinkBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(currentRoomCode);
-    alert("Room code copied to clipboard!");
-});
+if (copyLinkBtn) {
+    copyLinkBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(currentRoomCode);
+        alert("Room code copied!");
+    });
+}
 
-copyGameLinkBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(currentRoomCode);
-    alert("Room code copied to clipboard!");
-});
+if (copyGameLinkBtn) {
+    copyGameLinkBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(currentRoomCode);
+        alert("Room code copied!");
+    });
+}
