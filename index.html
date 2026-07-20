@@ -12,20 +12,24 @@
     <div class="petal-container" id="petal-container"></div>
     <audio id="bg-music" src="music.mp3" loop></audio>
 
-    <!-- Fixed Floating Controls Header -->
+    <!-- Top Navigation Header -->
     <header class="app-top-bar">
         <div id="user-profile-bar" class="profile-bar hidden">
             <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
-            <span id="user-name-display" class="user-name-display"></span>
+            <div class="user-info">
+                <span id="user-name-display" class="user-name-display">Guest</span>
+                <span id="user-stats-display" class="user-stats-display">Wins: 0</span>
+            </div>
             <button id="logout-btn" class="logout-btn">Sign Out</button>
         </div>
-        <div class="audio-controls">
+        
+        <div class="header-right-controls">
+            <button id="leaderboard-btn" class="icon-btn" title="Leaderboard">🏆</button>
             <button id="music-toggle-btn" class="icon-btn" title="Toggle Music">🎵</button>
-            <button id="sfx-toggle-btn" class="icon-btn" title="Toggle SFX">🔊</button>
         </div>
     </header>
 
-    <!-- Main Game Board UI -->
+    <!-- Main Game Workspace -->
     <main class="game-container">
         <header class="game-header">
             <h1>Sakura Duel</h1>
@@ -46,6 +50,12 @@
             </div>
         </section>
 
+        <!-- Room Code Header Badge (Inside Game) -->
+        <div id="active-room-badge" class="active-room-badge hidden">
+            <span id="game-room-code">ROOM: -----</span>
+            <button id="copy-game-link" class="icon-link-btn" title="Copy Link">📋</button>
+        </div>
+
         <div class="board-wrapper">
             <div class="board disabled" id="board">
                 <div class="cell" data-index="0"></div>
@@ -60,44 +70,66 @@
             </div>
         </div>
 
+        <!-- Live Chat Section -->
+        <div id="chat-box" class="chat-box hidden">
+            <div id="chat-messages" class="chat-messages"></div>
+            <form id="chat-form" class="chat-form">
+                <input type="text" id="chat-input" placeholder="Send a message..." autocomplete="off" maxlength="50">
+                <button type="submit" class="chat-send-btn">➔</button>
+            </form>
+        </div>
+
         <div class="game-action-buttons">
             <button id="rematch-btn" class="action-btn hidden">🌸 Request Rematch</button>
             <button id="leave-room-btn" class="action-btn secondary-btn hidden">🚪 Lobby</button>
         </div>
     </main>
 
-    <!-- Polished Login & Room Selection Portal -->
+    <!-- Room Portal & Authentication Overlay -->
     <div class="overlay" id="join-overlay">
         <div class="overlay-card">
             <div class="brand-badge">🌸 SAKURA ARENA</div>
-            <h2 id="overlay-title">Welcome Back</h2>
-            <p id="overlay-subtitle" class="overlay-subtitle">Sign in to save scores or play as a guest</p>
-            
-            <!-- Google Sign In Button -->
-            <button id="google-login-btn" class="google-btn">
-                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-                <span>Continue with Google</span>
-            </button>
+            <h2 id="overlay-title">Play Sakura Duel</h2>
+            <p id="overlay-subtitle" class="overlay-subtitle">Enter your name or sign in to sync stats</p>
 
-            <div class="or-divider"><span>OR PLAY ANONYMOUSLY</span></div>
-
-            <div class="input-group">
-                <input type="text" id="username-input" placeholder="Your Display Name..." maxlength="12" autocomplete="off">
+            <!-- Room Code Generator Header -->
+            <div id="room-wait-box" class="room-wait-box hidden">
+                <p class="wait-label">Share Code With Your Friend:</p>
+                <div id="room-code-display" class="room-code-text">------</div>
+                <button id="copy-link-btn" class="overlay-btn primary">📋 Copy Direct Link</button>
             </div>
 
-            <div id="lobby-actions" class="lobby-actions">
-                <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
-                
-                <div class="join-room-box">
-                    <input type="text" id="room-code-input" placeholder="ROOM CODE..." autocomplete="off">
-                    <button id="join-code-btn" class="overlay-btn accent">Join</button>
+            <!-- Input Form & Actions -->
+            <div id="lobby-interactive-section">
+                <div class="input-group">
+                    <input type="text" id="username-input" placeholder="Enter Player Name..." maxlength="12" autocomplete="off">
+                </div>
+
+                <!-- Google Sign-In Below Name Input -->
+                <button id="google-login-btn" class="google-btn">
+                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+                    <span>Link Account with Google</span>
+                </button>
+
+                <div class="or-divider"><span>GAME MODES</span></div>
+
+                <div id="lobby-actions" class="lobby-actions">
+                    <button id="create-room-btn" class="overlay-btn primary">✨ Create New Room</button>
+                    <div class="join-room-box">
+                        <input type="text" id="room-code-input" placeholder="ROOM CODE..." autocomplete="off">
+                        <button id="join-code-btn" class="overlay-btn accent">Join</button>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div id="room-wait-box" class="hidden">
-                <div id="room-code-display" class="room-code-text"></div>
-                <button id="copy-link-btn" class="overlay-btn primary">📋 Copy Invite Link</button>
-            </div>
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal hidden">
+        <div class="modal-card">
+            <h3>🏆 Hall of Fame</h3>
+            <div id="leaderboard-list" class="leaderboard-list">Loading...</div>
+            <button id="close-leaderboard-btn" class="overlay-btn secondary-btn">Close</button>
         </div>
     </div>
 
