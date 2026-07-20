@@ -266,7 +266,8 @@ async function syncUserData(user) {
                 email: user.email,
                 wins: 0,
                 avatar: user.photoURL || 'https://via.placeholder.com/32',
-                isDev: isDev
+                isDev: isDev,
+                isBlurred: false
             });
             if (userStatsDisplay) userStatsDisplay.textContent = "Wins: 0";
         } else {
@@ -339,7 +340,7 @@ if (joinCodeBtn) {
         isHost = false;
         playerSymbol = 'O';
 
-        // Choose starting player randomly (50% X / 50% O)
+        // Choose starting player randomly
         const startingTurn = Math.random() < 0.5 ? 'X' : 'O';
 
         await update(roomRef, {
@@ -538,7 +539,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM (DUAL SUPPORT) ---
+// --- CHAT SYSTEM ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -615,60 +616,105 @@ if (closeChatBtn) {
     });
 }
 
-// --- LEADERBOARD (DEV PINNED TO #1) ---
+// --- LEADERBOARD (TOP 10 + GLOBAL ADMIN BLUR CONTROL) ---
 if (leaderboardBtn) {
-    leaderboardBtn.addEventListener('click', async () => {
-        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
-        if (leaderboardList) leaderboardList.innerHTML = "Loading records...";
+    leaderboardBtn.addEventListener('click', renderLeaderboard);
+}
 
-        try {
-            const snapshot = await get(ref(db, 'users'));
+async function renderLeaderboard() {
+    if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+    if (leaderboardList) leaderboardList.innerHTML = "Loading top players...";
 
-            if (!snapshot.exists()) {
-                if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>No records found.</div>";
-                return;
-            }
+    try {
+        const snapshot = await get(ref(db, 'users'));
 
-            let users = [];
-            snapshot.forEach((child) => {
-                users.push(child.val());
+        if (!snapshot.exists()) {
+            if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>No records found.</div>";
+            return;
+        }
+
+        let users = [];
+        snapshot.forEach((child) => {
+            users.push({ uid: child.key, ...child.val() });
+        });
+
+        // Separate Developer from Regular Users
+        let devUser = users.find(u => isDeveloper(u) || u.isDev);
+        let regularUsers = users.filter(u => !(isDeveloper(u) || u.isDev));
+
+        // Sort regular users by wins (descending)
+        regularUsers.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+
+        // Assemble leaderboard list
+        let finalLeaderboard = [];
+        if (devUser) {
+            finalLeaderboard.push(devUser);
+        } else {
+            finalLeaderboard.push({ uid: 'dev-id', name: DEV_NAME, email: DEV_EMAIL, wins: 1, isDev: true });
+        }
+
+        finalLeaderboard = finalLeaderboard.concat(regularUsers);
+
+        // 🎯 STRICT RULE: LIMIT TO TOP 10 PLAYERS ONLY
+        finalLeaderboard = finalLeaderboard.slice(0, 10);
+
+        const currentIsDev = isDeveloper(currentUser);
+
+        if (leaderboardList) {
+            leaderboardList.innerHTML = "";
+            finalLeaderboard.forEach((u, idx) => {
+                const row = document.createElement('div');
+                row.className = 'lb-row';
+                
+                const isDev = isDeveloper(u) || u.isDev;
+                const rawName = u.name || 'Player';
+                const isBlurredForEveryone = u.isBlurred === true;
+
+                const nameMarkup = isDev 
+                    ? renderDevName(rawName) 
+                    : `<span class="lb-name-styled">${rawName}</span>`;
+
+                const blurredClass = isBlurredForEveryone ? 'globally-blurred' : '';
+                const adminClass = currentIsDev ? 'admin-clickable' : '';
+
+                row.innerHTML = `
+                    <span class="lb-name">
+                        #${idx + 1} 
+                        <span class="lb-name-text ${blurredClass} ${adminClass}" data-uid="${u.uid}" title="${currentIsDev ? 'Click to toggle global blur' : ''}">
+                            ${nameMarkup}
+                        </span>
+                    </span>
+                    <span class="lb-score" style="${isDev ? 'color: #ef4444; font-weight: 800;' : ''}">${u.wins || 0} Wins</span>
+                `;
+
+                leaderboardList.appendChild(row);
             });
 
-            let devUser = users.find(u => isDeveloper(u) || u.isDev);
-            let regularUsers = users.filter(u => !(isDeveloper(u) || u.isDev));
+            // --- ADMIN ONLY: CLICK TO BLUR / UNBLUR ANY NAME GLOBALLY ---
+            if (currentIsDev) {
+                const nameSpans = leaderboardList.querySelectorAll('.admin-clickable');
+                nameSpans.forEach(span => {
+                    span.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const targetUid = span.getAttribute('data-uid');
+                        if (!targetUid || targetUid === 'dev-id') return;
 
-            regularUsers.sort((a, b) => (b.wins || 0) - (a.wins || 0));
+                        const userBlurRef = ref(db, `users/${targetUid}/isBlurred`);
+                        const currentValSnap = await get(userBlurRef);
+                        const newBlurStatus = !(currentValSnap.val() === true);
 
-            let finalLeaderboard = [];
-            if (devUser) {
-                finalLeaderboard.push(devUser);
-            } else {
-                finalLeaderboard.push({ name: DEV_NAME, email: DEV_EMAIL, wins: 1, isDev: true });
-            }
-
-            finalLeaderboard = finalLeaderboard.concat(regularUsers);
-
-            if (leaderboardList) {
-                leaderboardList.innerHTML = "";
-                finalLeaderboard.forEach((u, idx) => {
-                    const row = document.createElement('div');
-                    row.className = 'lb-row';
-                    
-                    const isDev = isDeveloper(u) || u.isDev;
-                    const nameMarkup = isDev ? renderDevName(u.name || DEV_NAME) : (u.name || 'Player');
-
-                    row.innerHTML = `
-                        <span class="lb-name">#${idx + 1} ${nameMarkup}</span>
-                        <span class="lb-score" style="${isDev ? 'color: #ef4444; font-weight: 800;' : ''}">${u.wins || 0} Wins</span>
-                    `;
-                    leaderboardList.appendChild(row);
+                        await set(userBlurRef, newBlurStatus);
+                        
+                        showToast(newBlurStatus ? "Name blurred for everyone!" : "Name unblurred for everyone!");
+                        renderLeaderboard();
+                    });
                 });
             }
-        } catch (err) {
-            console.error("Leaderboard Error:", err);
-            if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>Failed to load data.</div>";
         }
-    });
+    } catch (err) {
+        console.error("Leaderboard Error:", err);
+        if (leaderboardList) leaderboardList.innerHTML = "<div class='lb-row'>Failed to load data.</div>";
+    }
 }
 
 if (closeLeaderboardBtn) {
@@ -687,7 +733,6 @@ if (userProfileBar) {
     });
 }
 
-// Change Name Functionality
 async function handleNameChange() {
     if (!currentUser) {
         showToast("You must be logged in to change your name.", "error");
@@ -701,13 +746,9 @@ async function handleNameChange() {
     }
 
     try {
-        // 1. Update Firebase Auth Profile
         await updateProfile(currentUser, { displayName: newName });
-
-        // 2. Update Database Record
         await update(ref(db, `users/${currentUser.uid}`), { name: newName });
 
-        // 3. Update Current Active Game Room Name (if in a room)
         if (currentRoomCode) {
             const roomRef = ref(db, `rooms/${currentRoomCode}`);
             if (isHost) {
@@ -717,7 +758,6 @@ async function handleNameChange() {
             }
         }
 
-        // 4. Update Header UI
         if (userNameDisplay) {
             const isDev = isDeveloper(currentUser);
             userNameDisplay.innerHTML = isDev ? renderDevName(newName) : newName;
