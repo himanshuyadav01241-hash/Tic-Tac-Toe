@@ -107,11 +107,11 @@ onAuthStateChanged(auth, async (user) => {
 
         if (usernameInput) {
             usernameInput.value = user.displayName || '';
-            usernameInput.readOnly = true; // Lock input to profile name when logged in
+            usernameInput.readOnly = true;
         }
 
         if (googleBtn) {
-            googleBtn.innerHTML = `✅ Signed in as ${user.displayName.split(' ')[0]}`;
+            googleBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
             googleBtn.classList.add('signed-in');
         }
 
@@ -175,11 +175,6 @@ if (createRoomBtn) {
         });
 
         joinRoom(roomId, 'X');
-        if (roomCodeDisplay) roomCodeDisplay.textContent = roomId;
-        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
-        
-        const lobbySection = document.getElementById('lobby-interactive-section');
-        if (lobbySection) lobbySection.classList.add('hidden');
     });
 }
 
@@ -210,6 +205,9 @@ function joinRoom(roomId, symbol) {
     currentRoomId = roomId;
     playerSymbol = symbol;
 
+    // Immediately hide join overlay on joining or creating a room
+    if (overlay) overlay.classList.add('hidden');
+
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${roomId}`;
     if (chatBox) chatBox.classList.remove('hidden');
@@ -226,11 +224,6 @@ function listenToRoom(roomId) {
     onValue(roomRef, (snapshot) => {
         const room = snapshot.val();
         if (!room) return;
-
-        // Hide main join overlay immediately once the game is live
-        if (room.status === 'playing' && overlay) {
-            overlay.classList.add('hidden');
-        }
 
         if (p1Name) p1Name.textContent = room.p1?.name || "Host";
         if (p2Name) p2Name.textContent = room.p2?.name || "Waiting...";
@@ -259,7 +252,6 @@ function listenToRoom(roomId) {
             gameActive = false;
             if (boardEl) boardEl.classList.add('disabled');
 
-            // Show "Next Round" exclusively to the Host (Player X)
             if (rematchBtn) {
                 rematchBtn.textContent = "Next Round 🔄";
                 if (playerSymbol === 'X') {
