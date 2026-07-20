@@ -18,7 +18,9 @@ import {
     update, 
     push, 
     remove, 
-    serverTimestamp 
+    serverTimestamp,
+    onDisconnect,
+    runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 // --- FIREBASE CONFIGURATION ---
@@ -110,6 +112,7 @@ let currentRoomCode = null;
 let playerSymbol = null;
 let isHost = false;
 let roomUnsubscribe = null;
+let chatUnsubscribe = null;
 let lastMessageCount = 0;
 
 // --- EXCLUSIVE DEV DESIGN BUILDER ---
@@ -301,6 +304,12 @@ if (createRoomBtn) {
         playerSymbol = 'X';
 
         const roomRef = ref(db, `rooms/${currentRoomCode}`);
+        const chatRef = ref(db, `chats/${currentRoomCode}`);
+
+        // Handle auto-cleanup if host disconnects
+        onDisconnect(roomRef).remove();
+        onDisconnect(chatRef).remove();
+
         await set(roomRef, {
             hostName: name,
             hostScore: 0,
@@ -355,7 +364,11 @@ if (joinCodeBtn) {
 
 function listenToRoom(code) {
     const roomRef = ref(db, `rooms/${code}`);
-    if (roomUnsubscribe) roomUnsubscribe();
+    
+    if (roomUnsubscribe) {
+        roomUnsubscribe();
+        roomUnsubscribe = null;
+    }
 
     roomUnsubscribe = onValue(roomRef, (snapshot) => {
         if (!snapshot.exists()) {
@@ -506,11 +519,14 @@ function checkWinner(b) {
 }
 
 async function incrementWins(uid) {
-    const userRef = ref(db, `users/${uid}/wins`);
-    const snapshot = await get(userRef);
-    const currentWins = snapshot.val() || 0;
-    await set(userRef, currentWins + 1);
-    if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${currentWins + 1}`;
+    const userWinsRef = ref(db, `users/${uid}/wins`);
+    const result = await runTransaction(userWinsRef, (currentWins) => {
+        return (currentWins || 0) + 1;
+    });
+
+    if (result.committed && userStatsDisplay) {
+        userStatsDisplay.textContent = `Wins: ${result.snapshot.val()}`;
+    }
 }
 
 // --- REMATCH & CLEANUP ---
@@ -531,6 +547,15 @@ if (rematchBtn) {
 }
 
 function cleanupAndLeave() {
+    if (roomUnsubscribe) {
+        roomUnsubscribe();
+        roomUnsubscribe = null;
+    }
+    if (chatUnsubscribe) {
+        chatUnsubscribe();
+        chatUnsubscribe = null;
+    }
+
     if (currentRoomCode) {
         remove(ref(db, `rooms/${currentRoomCode}`));
         remove(ref(db, `chats/${currentRoomCode}`));
@@ -540,19 +565,17 @@ function cleanupAndLeave() {
 
 if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', cleanupAndLeave);
 
-window.addEventListener('beforeunload', () => {
-    if (currentRoomCode) {
-        remove(ref(db, `rooms/${currentRoomCode}`));
-        remove(ref(db, `chats/${currentRoomCode}`));
-    }
-});
-
 // --- CHAT SYSTEM ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
 
-    onValue(chatRef, (snapshot) => {
+    if (chatUnsubscribe) {
+        chatUnsubscribe();
+        chatUnsubscribe = null;
+    }
+
+    chatUnsubscribe = onValue(chatRef, (snapshot) => {
         if (!chatMessages) return;
         chatMessages.innerHTML = "";
         if (!snapshot.exists()) return;
@@ -678,7 +701,6 @@ async function renderLeaderboard() {
                     ? renderDevName(rawName) 
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
-                // Uses inline styles for a mild, readable blur effect
                 const blurStyle = isBlurredForEveryone 
                     ? "filter: blur(2.5px); opacity: 0.85; transition: filter 0.3s ease;" 
                     : "";
