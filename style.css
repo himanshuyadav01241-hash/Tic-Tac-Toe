@@ -429,7 +429,8 @@ body {
     left: 0; 
     width: 100vw; 
     height: 100vh;
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
     display: flex; 
     justify-content: center; 
     align-items: center; 
@@ -663,24 +664,6 @@ body {
     font-weight: 600; 
 }
 
-.lb-row.guest-account { 
-    background: #f1f5f9; 
-    border-color: #cbd5e1; 
-}
-
-/* --- Developer Account Styling --- */
-.lb-row.developer-account {
-    background: #fef2f2;
-    border: 1.5px solid #fecaca;
-    color: var(--accent-red);
-    font-weight: 800;
-}
-
-.lb-row.developer-account .lb-name {
-    color: var(--accent-red);
-    font-weight: 800;
-}
-
 .lb-score { 
     color: var(--accent-red); 
     font-weight: 800; 
@@ -737,7 +720,7 @@ body {
 }
 
 /* ==========================================================================
-   UTILITY & RESPONSIVE ADAPTATIONS (MOBILE DRAWER FIX)
+   UTILITY & RESPONSIVE ADAPTATIONS
    ========================================================================== */
 .hidden { 
     display: none !important; 
