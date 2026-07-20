@@ -18,7 +18,7 @@ import {
     serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- YOUR FIREBASE CONFIGURATION ---
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
   authDomain: "tictactoe-e747b.firebaseapp.com",
@@ -131,45 +131,52 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- QUICK CHAT TOAST (MOBILE PREVIEW) ---
-function showChatToast(sender, text) {
-    let toast = document.getElementById('chat-toast');
+// --- SMOOTH TOAST NOTIFICATIONS (REPLACES JARRING ALERTS) ---
+function showToast(message, type = 'info') {
+    let toast = document.getElementById('system-toast');
     if (!toast) {
         toast = document.createElement('div');
-        toast.id = 'chat-toast';
+        toast.id = 'system-toast';
         toast.style.cssText = `
             position: fixed;
-            top: 25px;
+            top: 20px;
             left: 50%;
-            transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.95);
+            transform: translateX(-50%) translateY(-20px);
+            background: rgba(15, 23, 42, 0.92);
             color: #fff;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            z-index: 9999;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            backdrop-filter: blur(8px);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
             pointer-events: none;
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
-            max-width: 85%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: center;
+            max-width: 90%;
         `;
         document.body.appendChild(toast);
     }
 
-    toast.innerHTML = `<strong style="color:#ef4444;">${sender}:</strong> ${text}`;
+    if (type === 'error') {
+        toast.style.borderColor = '#ef4444';
+        toast.style.color = '#fca5a5';
+    } else {
+        toast.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        toast.style.color = '#ffffff';
+    }
+
+    toast.textContent = message;
     toast.style.opacity = '1';
     toast.style.transform = 'translateX(-50%) translateY(0px)';
 
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateX(-50%) translateY(-10px)';
+        toast.style.transform = 'translateX(-50%) translateY(-20px)';
     }, 3000);
 }
 
@@ -210,7 +217,7 @@ if (googleLoginBtn) {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Firebase Auth Error:", error);
-            alert(`Sign In Failed: ${error.message}`);
+            showToast(`Sign In Failed: ${error.message}`, 'error');
         }
     });
 }
@@ -278,7 +285,6 @@ if (createRoomBtn) {
             createdAt: serverTimestamp()
         });
 
-        // Show Waiting Lobby State Properly
         if (roomWaitBox) roomWaitBox.classList.remove('hidden');
         if (roomCodeDisplay) roomCodeDisplay.textContent = currentRoomCode;
         if (joinOverlay) joinOverlay.classList.remove('hidden'); 
@@ -291,16 +297,16 @@ if (createRoomBtn) {
 if (joinCodeBtn) {
     joinCodeBtn.addEventListener('click', async () => {
         const code = roomCodeInput ? roomCodeInput.value.trim().toUpperCase() : "";
-        if (code.length !== 6) return alert("Please enter a valid 6-character Room Code.");
+        if (code.length !== 6) return showToast("Please enter a valid 6-character Room Code.", 'error');
 
         const roomRef = ref(db, `rooms/${code}`);
         const snapshot = await get(roomRef);
 
-        if (!snapshot.exists()) return alert("Room not found!");
+        if (!snapshot.exists()) return showToast("Room not found!", 'error');
         const room = snapshot.val();
 
         if (room.guestName && room.guestName !== "") {
-            return alert("Room is already full!");
+            return showToast("Room is already full!", 'error');
         }
 
         currentRoomCode = code;
@@ -322,8 +328,8 @@ function listenToRoom(code) {
 
     roomUnsubscribe = onValue(roomRef, (snapshot) => {
         if (!snapshot.exists()) {
-            alert("Room has been closed.");
-            cleanupAndLeave();
+            showToast("Room closed by user.", 'info');
+            setTimeout(() => cleanupAndLeave(), 1000);
             return;
         }
 
@@ -336,7 +342,6 @@ function listenToRoom(code) {
 
 // --- GAME UI UPDATE ---
 function updateGameUI(room) {
-    // 1. WAITING LOBBY
     if (room.status === 'waiting') {
         if (joinOverlay) joinOverlay.classList.remove('hidden');
         if (gameContainer) gameContainer.classList.add('hidden');
@@ -345,14 +350,12 @@ function updateGameUI(room) {
         return;
     }
 
-    // 2. ACTIVE / FINISHED MATCH
     if (roomWaitBox) roomWaitBox.classList.add('hidden');
     if (joinOverlay) joinOverlay.classList.add('hidden');
     if (gameContainer) gameContainer.classList.remove('hidden');
 
-    // Force Chat Button Visible for Both PC and Mobile
+    // Show Chat Toggle Button for both Desktop & Mobile
     if (toggleChatBtn) toggleChatBtn.classList.remove('hidden');
-    if (chatBox) chatBox.classList.remove('hidden');
 
     if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${currentRoomCode}`;
     if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
@@ -465,7 +468,7 @@ async function incrementWins(uid) {
     if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${currentWins + 1}`;
 }
 
-// --- REMATCH & AUTOMATIC ROOM CLOSURE ON LEAVE ---
+// --- REMATCH & CLEANUP ---
 if (rematchBtn) {
     rematchBtn.addEventListener('click', async () => {
         if (!isHost) return;
@@ -496,7 +499,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// --- CHAT SYSTEM WITH PREVIEW TOAST ---
+// --- CHAT SYSTEM WITH MOBILE TOGGLE FIX ---
 function listenToChat(code) {
     const chatRef = ref(db, `chats/${code}`);
     lastMessageCount = 0;
@@ -522,7 +525,7 @@ function listenToChat(code) {
         if (messages.length > lastMessageCount && lastMessageCount > 0) {
             const latestMsg = messages[messages.length - 1];
             if (latestMsg.sender !== getPlayerName()) {
-                showChatToast(latestMsg.sender, latestMsg.text);
+                showToast(`${latestMsg.sender}: ${latestMsg.text}`);
             }
         }
         lastMessageCount = messages.length;
@@ -547,15 +550,24 @@ if (chatForm) {
     });
 }
 
+// TOGGLE CHAT FIX FOR MOBILE & DESKTOP
 if (toggleChatBtn) {
-    toggleChatBtn.addEventListener('click', () => {
-        if (chatBox) chatBox.classList.toggle('active');
+    toggleChatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (chatBox) {
+            chatBox.classList.remove('hidden');
+            chatBox.classList.toggle('active');
+            chatBox.classList.toggle('open');
+        }
     });
 }
 
 if (closeChatBtn) {
     closeChatBtn.addEventListener('click', () => {
-        if (chatBox) chatBox.classList.remove('active');
+        if (chatBox) {
+            chatBox.classList.remove('active');
+            chatBox.classList.remove('open');
+        }
     });
 }
 
@@ -655,13 +667,13 @@ if (musicToggleBtn) {
 if (copyLinkBtn) {
     copyLinkBtn.addEventListener('click', () => {
         navigator.clipboard.writeText(currentRoomCode);
-        alert("Room code copied!");
+        showToast("Room code copied to clipboard!");
     });
 }
 
 if (copyGameLinkBtn) {
     copyGameLinkBtn.addEventListener('click', () => {
         navigator.clipboard.writeText(currentRoomCode);
-        alert("Room code copied!");
+        showToast("Room code copied to clipboard!");
     });
 }
