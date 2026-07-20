@@ -9,10 +9,10 @@
 <body>
     <div class="background-overlay"></div>
 
-    <!-- Header Navigation -->
+    <!-- Header Navigation Bar -->
     <header class="app-top-bar">
         <div id="user-profile-bar" class="profile-bar hidden">
-            <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+            <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/32" alt="Avatar">
             <div class="user-info">
                 <span id="user-name-display" class="user-name-display">Player</span>
                 <span id="user-stats-display" class="user-stats-display">Wins: 0</span>
@@ -25,9 +25,6 @@
             <button id="leaderboard-btn" class="icon-btn" title="Leaderboard">🏆</button>
         </div>
     </header>
-
-    <!-- Audio Element -->
-    <audio id="bg-music" loop src="bg-music.mp3"></audio>
 
     <!-- Main Game Container -->
     <main class="game-container">
@@ -42,6 +39,7 @@
                 <button id="copy-game-link" class="icon-link-btn" title="Copy Code">📋</button>
             </div>
 
+            <!-- Scoreboard -->
             <div class="scoreboard">
                 <div id="p1-box" class="player-box">
                     <span class="avatar">❌</span>
@@ -56,6 +54,7 @@
                 </div>
             </div>
 
+            <!-- Tic Tac Toe Grid Board -->
             <div class="board-wrapper">
                 <div id="board" class="board disabled">
                     <div class="cell" data-index="0"></div>
@@ -78,7 +77,7 @@
             </div>
         </section>
 
-        <!-- Sidebar Chat -->
+        <!-- Sidebar Chat Box -->
         <aside id="chat-box" class="chat-sidebar hidden">
             <div class="chat-header">
                 <h3>Room Chat</h3>
@@ -92,7 +91,7 @@
         </aside>
     </main>
 
-    <!-- Overlay Lobby Popup -->
+    <!-- Initial Lobby / Join Room Overlay -->
     <div id="join-overlay" class="overlay">
         <div class="overlay-card">
             <span class="brand-badge">🐺 TICTAC DUEL ARENA</span>
@@ -133,6 +132,12 @@
             <div id="leaderboard-list" class="leaderboard-list">Loading...</div>
             <button id="close-leaderboard-btn" class="overlay-btn primary">Close</button>
         </div>
+    </div>
+
+    <!-- Modern Notification Toast -->
+    <div id="toast-notification" class="toast hidden">
+        <span id="toast-icon">⚠️</span>
+        <span id="toast-message">Notification message</span>
     </div>
 
     <script type="module" src="app.js"></script>
