@@ -75,7 +75,7 @@ const leaderboardModal = document.getElementById('leaderboard-modal');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardList = document.getElementById('leaderboard-list');
 
-// --- AUTHENTICATION ---
+// --- AUTHENTICATION & GOOGLE SIGN-IN ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -83,6 +83,12 @@ onAuthStateChanged(auth, async (user) => {
         if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
         if (profileBar) profileBar.classList.remove('hidden');
         if (usernameInput) usernameInput.value = user.displayName || '';
+
+        // Update Google button to "Signed In" indicator state
+        if (googleBtn) {
+            googleBtn.innerHTML = `✓ Connected as ${user.displayName.split(' ')[0]}`;
+            googleBtn.classList.add('signed-in');
+        }
 
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
@@ -95,15 +101,23 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         currentUser = null;
         if (profileBar) profileBar.classList.add('hidden');
+        if (googleBtn) {
+            googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Link Account with Google`;
+            googleBtn.classList.remove('signed-in');
+        }
     }
 });
 
 if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
+        if (currentUser) return; // Prevent extra popups if already signed in
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (err) {
-            alert("Google Sign-In failed: " + err.message);
+            // Silently handle cancelled popups without alerting user
+            if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+                alert("Google Sign-In failed: " + err.message);
+            }
         }
     });
 }
