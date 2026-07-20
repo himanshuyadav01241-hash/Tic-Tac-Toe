@@ -138,7 +138,7 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- SMOOTH TOAST NOTIFICATIONS ---
+// --- SMOOTH TOAST NOTIFICATIONS (NO BACKGROUND BLUR) ---
 function showToast(message, type = 'info') {
     let toast = document.getElementById('system-toast');
     if (!toast) {
@@ -149,17 +149,15 @@ function showToast(message, type = 'info') {
             top: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            background: rgba(15, 23, 42, 0.75);
+            background: rgba(15, 23, 42, 0.9);
             color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 10px 20px;
             border-radius: 25px;
             font-size: 0.9rem;
             font-weight: 600;
             z-index: 10000;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
             pointer-events: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
@@ -384,8 +382,22 @@ function listenToRoom(code) {
     listenToChat(code);
 }
 
-// --- GAME UI UPDATE ---
+// --- GAME UI UPDATE (MATCHES TRANSPARENT BACKGROUND) ---
 function updateGameUI(room) {
+    // Ensure overlays do not blur the background or obscure layout
+    if (joinOverlay) {
+        joinOverlay.style.backdropFilter = 'none';
+        joinOverlay.style.webkitBackdropFilter = 'none';
+    }
+    if (leaderboardModal) {
+        leaderboardModal.style.backdropFilter = 'none';
+        leaderboardModal.style.webkitBackdropFilter = 'none';
+    }
+    if (manageProfileModal) {
+        manageProfileModal.style.backdropFilter = 'none';
+        manageProfileModal.style.webkitBackdropFilter = 'none';
+    }
+
     if (room.status === 'waiting') {
         if (joinOverlay) joinOverlay.classList.remove('hidden');
         if (gameContainer) gameContainer.classList.add('hidden');
@@ -396,7 +408,7 @@ function updateGameUI(room) {
 
     if (roomWaitBox) roomWaitBox.classList.add('hidden');
     
-    // Smoothly reveal background when game room starts
+    // Completely transparent container layer to blend seamlessly into page background
     if (joinOverlay) {
         joinOverlay.classList.add('hidden');
         joinOverlay.style.background = 'transparent';
@@ -408,6 +420,8 @@ function updateGameUI(room) {
 
     if (chatBox) {
         chatBox.classList.remove('hidden');
+        chatBox.style.backdropFilter = 'none';
+        chatBox.style.webkitBackdropFilter = 'none';
         if (window.innerWidth > 768) {
             chatBox.style.display = 'flex';
         }
@@ -650,7 +664,11 @@ if (closeChatBtn) {
 // --- LEADERBOARD & TOGGLE BLUR SYSTEM ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
-        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+        if (leaderboardModal) {
+            leaderboardModal.classList.remove('hidden');
+            leaderboardModal.style.backdropFilter = 'none';
+            leaderboardModal.style.webkitBackdropFilter = 'none';
+        }
         if (leaderboardList) leaderboardList.innerHTML = "Loading records...";
 
         await renderLeaderboard();
@@ -702,7 +720,7 @@ async function renderLeaderboard() {
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
                 const blurStyle = isBlurredForEveryone 
-                    ? "filter: blur(2.5px); opacity: 0.85; transition: filter 0.3s ease;" 
+                    ? "opacity: 0.85; transition: opacity 0.3s ease;" 
                     : "";
 
                 const adminViewClass = (isBlurredForEveryone && currentIsDev) ? 'admin-view' : '';
@@ -738,7 +756,7 @@ async function renderLeaderboard() {
 
                         await set(userBlurRef, newBlurStatus);
                         
-                        showToast(newBlurStatus ? "Name blur applied (slightly visible)" : "Name unblurred");
+                        showToast(newBlurStatus ? "Name marked hidden" : "Name visible");
                         renderLeaderboard();
                     });
                 });
@@ -762,7 +780,11 @@ if (userProfileBar) {
         if (!currentUser) return;
         if (profileModalAvatar) profileModalAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/70';
         if (profileNameInput) profileNameInput.value = currentUser.displayName || "";
-        if (manageProfileModal) manageProfileModal.classList.remove('hidden');
+        if (manageProfileModal) {
+            manageProfileModal.classList.remove('hidden');
+            manageProfileModal.style.backdropFilter = 'none';
+            manageProfileModal.style.webkitBackdropFilter = 'none';
+        }
     });
 }
 
