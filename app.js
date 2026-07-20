@@ -6,27 +6,23 @@ import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- REPLACE WITH YOUR ACTUAL FIREBASE CONFIG ---
+// --- YOUR FIREBASE CONFIG ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCP43ySOR5fIvOUDnCiAoK-kJol-0rF0Iw",
+  authDomain: "tictactoe-e747b.firebaseapp.com",
+  databaseURL: "https://tictactoe-e747b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "tictactoe-e747b",
+  storageBucket: "tictactoe-e747b.firebasestorage.app",
+  messagingSenderId: "864419563280",
+  appId: "1:864419563280:web:ed84b02a67e0d8e29cc795",
+  measurementId: "G-R8M0VCC2WC"
 };
 
 // Initialize Firebase
-let app, db, auth, googleProvider;
-try {
-    app = initializeApp(firebaseConfig);
-    db = getDatabase(app);
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
-} catch (err) {
-    console.error("Firebase Init Error:", err);
-}
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 // App State Variables
 let currentUser = null;
@@ -80,33 +76,30 @@ const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardList = document.getElementById('leaderboard-list');
 
 // --- AUTHENTICATION ---
-if (auth) {
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
-            userNameDisplay.textContent = user.displayName || 'Player';
-            profileBar.classList.remove('hidden');
-            usernameInput.value = user.displayName || '';
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/30';
+        if (userNameDisplay) userNameDisplay.textContent = user.displayName || 'Player';
+        if (profileBar) profileBar.classList.remove('hidden');
+        if (usernameInput) usernameInput.value = user.displayName || '';
 
-            const userRef = ref(db, `users/${user.uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
-            } else {
-                await set(userRef, { name: user.displayName, wins: 0 });
-                userStatsDisplay.textContent = 'Wins: 0';
-            }
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+            if (userStatsDisplay) userStatsDisplay.textContent = `Wins: ${snapshot.val().wins || 0}`;
         } else {
-            currentUser = null;
-            profileBar.classList.add('hidden');
+            await set(userRef, { name: user.displayName, wins: 0 });
+            if (userStatsDisplay) userStatsDisplay.textContent = 'Wins: 0';
         }
-    });
-}
+    } else {
+        currentUser = null;
+        if (profileBar) profileBar.classList.add('hidden');
+    }
+});
 
 if (googleBtn) {
     googleBtn.addEventListener('click', async () => {
-        if (!auth) return alert("Firebase Config is missing!");
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (err) {
@@ -119,7 +112,7 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => signOut(auth));
 }
 
-// --- ROOM GENERATION ---
+// --- ROOM LOGIC ---
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -128,8 +121,6 @@ if (createRoomBtn) {
     createRoomBtn.addEventListener('click', async () => {
         const name = usernameInput.value.trim() || "Host";
         const roomId = generateRoomCode();
-
-        if (!db) return alert("Firebase Database not connected!");
 
         const roomRef = ref(db, `rooms/${roomId}`);
         await set(roomRef, {
@@ -142,9 +133,11 @@ if (createRoomBtn) {
         });
 
         joinRoom(roomId, 'X');
-        roomCodeDisplay.textContent = roomId;
-        roomWaitBox.classList.remove('hidden');
-        document.getElementById('lobby-interactive-section').classList.add('hidden');
+        if (roomCodeDisplay) roomCodeDisplay.textContent = roomId;
+        if (roomWaitBox) roomWaitBox.classList.remove('hidden');
+        
+        const lobbySection = document.getElementById('lobby-interactive-section');
+        if (lobbySection) lobbySection.classList.add('hidden');
     });
 }
 
@@ -152,7 +145,6 @@ if (joinCodeBtn) {
     joinCodeBtn.addEventListener('click', async () => {
         const roomId = roomCodeInput.value.trim().toUpperCase();
         if (!roomId) return alert("Please enter a room code!");
-        if (!db) return alert("Firebase Database not connected!");
 
         const roomRef = ref(db, `rooms/${roomId}`);
         const snapshot = await get(roomRef);
@@ -176,11 +168,11 @@ function joinRoom(roomId, symbol) {
     currentRoomId = roomId;
     playerSymbol = symbol;
 
-    overlay.classList.add('hidden');
-    activeRoomBadge.classList.remove('hidden');
-    gameRoomCode.textContent = `ROOM: ${roomId}`;
-    chatBox.classList.remove('hidden');
-    leaveRoomBtn.classList.remove('hidden');
+    if (overlay) overlay.classList.add('hidden');
+    if (activeRoomBadge) activeRoomBadge.classList.remove('hidden');
+    if (gameRoomCode) gameRoomCode.textContent = `ROOM: ${roomId}`;
+    if (chatBox) chatBox.classList.remove('hidden');
+    if (leaveRoomBtn) leaveRoomBtn.classList.remove('hidden');
 
     listenToRoom(roomId);
     listenToChat(roomId);
@@ -193,37 +185,41 @@ function listenToRoom(roomId) {
         const room = snapshot.val();
         if (!room) return;
 
-        p1Name.textContent = room.p1?.name || "Host";
-        p2Name.textContent = room.p2?.name || "Waiting...";
-        p1Score.textContent = room.p1?.score || 0;
-        p2Score.textContent = room.p2?.score || 0;
+        if (p1Name) p1Name.textContent = room.p1?.name || "Host";
+        if (p2Name) p2Name.textContent = room.p2?.name || "Waiting...";
+        if (p1Score) p1Score.textContent = room.p1?.score || 0;
+        if (p2Score) p2Score.textContent = room.p2?.score || 0;
 
         renderBoard(room.board);
 
         if (room.status === 'waiting') {
-            statusText.textContent = "Waiting for an opponent...";
-            boardEl.classList.add('disabled');
+            if (statusText) statusText.textContent = "Waiting for an opponent...";
+            if (boardEl) boardEl.classList.add('disabled');
         } else if (room.status === 'playing') {
             gameActive = true;
             isMyTurn = (room.turn === playerSymbol);
-            statusText.textContent = isMyTurn ? "Your turn!" : `${room.turn === 'X' ? room.p1.name : room.p2.name}'s turn...`;
+            if (statusText) statusText.textContent = isMyTurn ? "Your turn!" : `${room.turn === 'X' ? room.p1.name : room.p2.name}'s turn...`;
             
-            p1Box.classList.toggle('active-turn', room.turn === 'X');
-            p2Box.classList.toggle('active-turn', room.turn === 'O');
+            if (p1Box) p1Box.classList.toggle('active-turn', room.turn === 'X');
+            if (p2Box) p2Box.classList.toggle('active-turn', room.turn === 'O');
             
-            if (isMyTurn) boardEl.classList.remove('disabled');
-            else boardEl.classList.add('disabled');
-            rematchBtn.classList.add('hidden');
+            if (boardEl) {
+                if (isMyTurn) boardEl.classList.remove('disabled');
+                else boardEl.classList.add('disabled');
+            }
+            if (rematchBtn) rematchBtn.classList.add('hidden');
         } else if (room.status === 'ended') {
             gameActive = false;
-            boardEl.classList.add('disabled');
-            rematchBtn.classList.remove('hidden');
+            if (boardEl) boardEl.classList.add('disabled');
+            if (rematchBtn) rematchBtn.classList.remove('hidden');
 
-            if (room.winner === 'draw') {
-                statusText.textContent = "It's a draw!";
-            } else {
-                const winnerName = room.winner === 'X' ? room.p1.name : room.p2.name;
-                statusText.textContent = `${winnerName} wins!`;
+            if (statusText) {
+                if (room.winner === 'draw') {
+                    statusText.textContent = "It's a draw!";
+                } else {
+                    const winnerName = room.winner === 'X' ? room.p1.name : room.p2.name;
+                    statusText.textContent = `${winnerName} wins!`;
+                }
             }
         }
     });
@@ -329,6 +325,7 @@ if (chatForm) {
 function listenToChat(roomId) {
     const chatRef = ref(db, `chats/${roomId}`);
     onValue(chatRef, (snapshot) => {
+        if (!chatMessages) return;
         chatMessages.innerHTML = '';
         snapshot.forEach((child) => {
             const data = child.val();
@@ -344,16 +341,14 @@ function listenToChat(roomId) {
 // --- LEADERBOARD ---
 if (leaderboardBtn) {
     leaderboardBtn.addEventListener('click', async () => {
-        leaderboardModal.classList.remove('hidden');
-        leaderboardList.innerHTML = 'Loading...';
-
-        if (!db) return leaderboardList.innerHTML = 'Database offline';
+        if (leaderboardModal) leaderboardModal.classList.remove('hidden');
+        if (leaderboardList) leaderboardList.innerHTML = 'Loading...';
 
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
 
         if (!snapshot.exists()) {
-            leaderboardList.innerHTML = 'No scores recorded yet!';
+            if (leaderboardList) leaderboardList.innerHTML = 'No scores recorded yet!';
             return;
         }
 
@@ -364,17 +359,21 @@ if (leaderboardBtn) {
 
         users.sort((a, b) => (b.wins || 0) - (a.wins || 0));
 
-        leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => `
-            <div class="lb-row">
-                <span>#${i + 1} ${u.name || 'Anonymous'}</span>
-                <span>🏆 ${u.wins || 0} Wins</span>
-            </div>
-        `).join('');
+        if (leaderboardList) {
+            leaderboardList.innerHTML = users.slice(0, 10).map((u, i) => `
+                <div class="lb-row">
+                    <span>#${i + 1} ${u.name || 'Anonymous'}</span>
+                    <span>🏆 ${u.wins || 0} Wins</span>
+                </div>
+            `).join('');
+        }
     });
 }
 
 if (closeLeaderboardBtn) {
-    closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.classList.add('hidden'));
+    closeLeaderboardBtn.addEventListener('click', () => {
+        if (leaderboardModal) leaderboardModal.classList.add('hidden');
+    });
 }
 
 const copyAction = (text) => {
