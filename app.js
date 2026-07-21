@@ -40,6 +40,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // --- PERMANENT DEVELOPER IDENTIFIERS ---
 const DEV_EMAIL = "himanshu.yadav01241@gmail.com";
@@ -115,7 +116,7 @@ let roomUnsubscribe = null;
 let chatUnsubscribe = null;
 let lastMessageCount = 0;
 
-// Force clear all page blur styles on initialization
+// Force clear backdrop blurs across overlays
 function enforceClearBackgrounds() {
     const overlays = [joinOverlay, gameContainer, leaderboardModal, manageProfileModal, chatBox];
     overlays.forEach(el => {
@@ -150,7 +151,7 @@ function renderDevName(nameText) {
     ">DEV</span>`;
 }
 
-// --- TOAST NOTIFICATIONS (CLEAR & SHARP) ---
+// --- TOAST NOTIFICATIONS ---
 function showToast(message, type = 'info') {
     let toast = document.getElementById('system-toast');
     if (!toast) {
@@ -198,7 +199,7 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// --- AUTHENTICATION WITH MOBILE REDIRECT FALLBACK ---
+// --- MOBILE-FRIENDLY AUTHENTICATION FLOW ---
 getRedirectResult(auth)
     .then((result) => {
         if (result && result.user) {
@@ -207,8 +208,8 @@ getRedirectResult(auth)
     })
     .catch((error) => {
         if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-            console.error("Redirect Login Error:", error);
-            showToast(`Sign In Failed: ${error.message}`, 'error');
+            console.error("Redirect Result Error:", error);
+            showToast(`Sign In Error (${error.code})`, 'error');
         }
     });
 
@@ -243,21 +244,24 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
+// Robust Sign-In Click Event with Popup -> Redirect Fallback
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
         try {
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
-                await signInWithRedirect(auth, googleProvider);
-            } else {
-                await signInWithPopup(auth, googleProvider);
-            }
+            await signInWithPopup(auth, googleProvider);
         } catch (error) {
-            if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-                return;
+            // If popup was blocked or unavailable on mobile, fallback to redirect
+            if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
+                try {
+                    await signInWithRedirect(auth, googleProvider);
+                } catch (redirectErr) {
+                    console.error("Redirect Error:", redirectErr);
+                    showToast(`Login failed: ${redirectErr.message}`, 'error');
+                }
+            } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                console.error("Popup Error:", error);
+                showToast(`Login error: ${error.code}`, 'error');
             }
-            console.error("Firebase Auth Error:", error);
-            showToast(`Sign In Failed: ${error.message}`, 'error');
         }
     });
 }
@@ -710,7 +714,6 @@ async function renderLeaderboard() {
                     ? renderDevName(rawName) 
                     : `<span class="lb-name-styled">${rawName}</span>`;
 
-                // Applies CSS text blur when name is set to blurred in state
                 const blurCss = isNameBlurred 
                     ? "filter: blur(5px); -webkit-filter: blur(5px); opacity: 0.8; user-select: none; transition: all 0.3s ease;" 
                     : "filter: none; opacity: 1;";
@@ -730,7 +733,6 @@ async function renderLeaderboard() {
                 leaderboardList.appendChild(row);
             });
 
-            // DEV ONLY: Click to toggle individual player name blur
             if (currentIsDev) {
                 const nameSpans = leaderboardList.querySelectorAll('.admin-clickable');
                 nameSpans.forEach(span => {
